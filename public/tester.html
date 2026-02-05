@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GetBucks VAS Token Tester</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 24px;
+        color: #1f2937;
+      }
+      h1 {
+        font-size: 20px;
+        margin-bottom: 8px;
+      }
+      .hint {
+        color: #6b7280;
+        font-size: 12px;
+        margin-bottom: 16px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        max-width: 900px;
+      }
+      .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 4px;
+        color: #374151;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+      textarea {
+        min-height: 120px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+      }
+      button {
+        background: #111827;
+        color: #fff;
+        border: none;
+        padding: 8px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .row-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+      }
+      .status {
+        font-size: 12px;
+        margin-top: 8px;
+        color: #2563eb;
+      }
+      .error {
+        color: #b91c1c;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>GetBucks VAS Token Tester</h1>
+    <div class="hint">Use this page to request and validate tokens locally or against production.</div>
+
+    <div class="grid">
+      <div class="card">
+        <label for="baseUrl">Base URL</label>
+        <input id="baseUrl" type="text" placeholder="http://localhost:3001" />
+        <div class="hint">Example: http://localhost:3001 or https://4.222.185.132.nip.io/vas</div>
+        <button id="loadEnvBtn" style="margin-top: 12px">Load from Server .env</button>
+        <div id="loadEnvStatus" class="status"></div>
+        <div class="hint" id="endpointsDisplay"></div>
+      </div>
+
+      <div class="card">
+        <h2>Request Token</h2>
+        <div class="hint" id="requestEndpointDisplay"></div>
+        <div class="row-3">
+          <div>
+            <label for="clientId">clientId</label>
+            <input id="clientId" type="text" />
+          </div>
+          <div>
+            <label for="clientSecret">clientSecret</label>
+            <input id="clientSecret" type="password" />
+          </div>
+          <div>
+            <label for="app">app</label>
+            <select id="app">
+              <option value="bill-payments">bill-payments</option>
+              <option value="airtime">airtime</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-top: 12px">
+          <div>
+            <label for="sessionId">sessionID</label>
+            <input id="sessionId" type="text" />
+          </div>
+          <div>
+            <label for="userId">userId (optional)</label>
+            <input id="userId" type="text" />
+          </div>
+        </div>
+        <button id="requestBtn" style="margin-top: 12px">Request Token</button>
+        <div id="requestStatus" class="status"></div>
+        <label for="requestResponse" style="margin-top: 12px">Response</label>
+        <textarea id="requestResponse" readonly></textarea>
+      </div>
+
+      <div class="card">
+        <h2>Validate Token</h2>
+        <div class="hint" id="validateEndpointDisplay"></div>
+        <label for="token">token</label>
+        <input id="token" type="text" />
+        <button id="validateBtn" style="margin-top: 12px">Validate Token</button>
+        <div id="validateStatus" class="status"></div>
+        <label for="validateResponse" style="margin-top: 12px">Response</label>
+        <textarea id="validateResponse" readonly></textarea>
+      </div>
+    </div>
+
+    <script>
+      const baseUrlInput = document.getElementById('baseUrl');
+      const requestBtn = document.getElementById('requestBtn');
+      const validateBtn = document.getElementById('validateBtn');
+      const loadEnvBtn = document.getElementById('loadEnvBtn');
+      const loadEnvStatus = document.getElementById('loadEnvStatus');
+      const endpointsDisplay = document.getElementById('endpointsDisplay');
+      const requestStatus = document.getElementById('requestStatus');
+      const validateStatus = document.getElementById('validateStatus');
+      const requestResponse = document.getElementById('requestResponse');
+      const validateResponse = document.getElementById('validateResponse');
+      const tokenInput = document.getElementById('token');
+      const clientIdInput = document.getElementById('clientId');
+      const clientSecretInput = document.getElementById('clientSecret');
+      const appSelect = document.getElementById('app');
+      const requestEndpointDisplay = document.getElementById('requestEndpointDisplay');
+      const validateEndpointDisplay = document.getElementById('validateEndpointDisplay');
+
+      baseUrlInput.value = window.location.origin;
+
+      const normalizeBaseUrl = () => baseUrlInput.value.replace(/\/+$/, '');
+
+      const renderEndpoints = () => {
+        const base = normalizeBaseUrl();
+        endpointsDisplay.textContent = `Endpoints: ${base}/api/token/request | ${base}/api/validate-token`;
+        requestEndpointDisplay.textContent = `${base}/api/token/request`;
+        validateEndpointDisplay.textContent = `${base}/api/validate-token`;
+      };
+
+      const setStatus = (el, message, isError = false) => {
+        el.textContent = message;
+        el.classList.toggle('error', isError);
+      };
+
+      renderEndpoints();
+      baseUrlInput.addEventListener('input', renderEndpoints);
+
+      loadEnvBtn.addEventListener('click', async () => {
+        setStatus(loadEnvStatus, 'Loading config from server...');
+        try {
+          const response = await fetch(`${normalizeBaseUrl()}/api/tester-config`);
+          const data = await response.json();
+          if (response.ok) {
+            clientIdInput.value = data.clientId || '';
+            if (data.clientSecret) {
+              clientSecretInput.value = data.clientSecret;
+            }
+            if (data.app) {
+              appSelect.value = data.app;
+            }
+            if (data.baseUrl) {
+              baseUrlInput.value = data.baseUrl;
+            }
+            renderEndpoints();
+            setStatus(loadEnvStatus, 'Loaded from server.');
+          } else {
+            setStatus(loadEnvStatus, 'Failed to load config.', true);
+          }
+        } catch (error) {
+          setStatus(loadEnvStatus, 'Load failed.', true);
+        }
+      });
+
+      requestBtn.addEventListener('click', async () => {
+        const payload = {
+          clientId: clientIdInput.value.trim(),
+          clientSecret: clientSecretInput.value.trim(),
+          app: appSelect.value,
+          sessionID: document.getElementById('sessionId').value.trim(),
+          userId: document.getElementById('userId').value.trim() || undefined,
+        };
+
+        requestResponse.value = '';
+        setStatus(requestStatus, 'Requesting token...');
+
+        try {
+          const response = await fetch(`${normalizeBaseUrl()}/api/token/request`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await response.json();
+          requestResponse.value = JSON.stringify(data, null, 2);
+          if (response.ok && data.token) {
+            tokenInput.value = data.token;
+            setStatus(requestStatus, 'Token generated.');
+          } else {
+            setStatus(requestStatus, 'Token request failed.', true);
+          }
+        } catch (error) {
+          requestResponse.value = JSON.stringify({ error: error.message }, null, 2);
+          setStatus(requestStatus, 'Request failed.', true);
+        }
+      });
+
+      validateBtn.addEventListener('click', async () => {
+        const token = tokenInput.value.trim();
+        validateResponse.value = '';
+        setStatus(validateStatus, 'Validating token...');
+
+        try {
+          const response = await fetch(
+            `${normalizeBaseUrl()}/api/validate-token?token=${encodeURIComponent(token)}`
+          );
+          const data = await response.json();
+          validateResponse.value = JSON.stringify(data, null, 2);
+          if (response.ok) {
+            setStatus(validateStatus, 'Token valid.');
+          } else {
+            setStatus(validateStatus, 'Token invalid.', true);
+          }
+        } catch (error) {
+          validateResponse.value = JSON.stringify({ error: error.message }, null, 2);
+          setStatus(validateStatus, 'Validation failed.', true);
+        }
+      });
+    </script>
+  </body>
+</html>
+
