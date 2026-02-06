@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GetBucks H5 Iframe Tester</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 24px;
+        color: #1f2937;
+      }
+      h1 {
+        font-size: 20px;
+        margin-bottom: 8px;
+      }
+      .hint {
+        color: #6b7280;
+        font-size: 12px;
+        margin-bottom: 12px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        max-width: 1100px;
+      }
+      .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        margin-bottom: 4px;
+        color: #374151;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+      textarea {
+        min-height: 90px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+      }
+      button {
+        background: #111827;
+        color: #fff;
+        border: none;
+        padding: 8px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .row-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+      }
+      .status {
+        font-size: 12px;
+        margin-top: 8px;
+        color: #2563eb;
+      }
+      .error {
+        color: #b91c1c;
+      }
+      iframe {
+        width: 100%;
+        height: 720px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>GetBucks H5 Iframe Tester</h1>
+    <div class="hint">
+      Use this page to build an iframe URL for Airtime or Bill Payments and preview it inline.
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <label for="app">App</label>
+        <select id="app">
+          <option value="bill-payments">bill-payments</option>
+          <option value="airtime">airtime</option>
+        </select>
+
+        <div class="row" style="margin-top: 12px">
+          <div>
+            <label for="appBaseUrl">App Base URL</label>
+            <input id="appBaseUrl" type="text" />
+            <div class="hint">Example: https://h5-getbucks-bill-payments.vercel.app</div>
+          </div>
+          <div>
+            <label for="token">Token</label>
+            <input id="token" type="text" />
+          </div>
+        </div>
+
+        <div class="row-3" style="margin-top: 12px">
+          <div>
+            <label for="accountNumber">accountNumber</label>
+            <input id="accountNumber" type="text" />
+          </div>
+          <div>
+            <label for="clientNumber">clientNumber</label>
+            <input id="clientNumber" type="text" />
+          </div>
+          <div>
+            <label for="mode">mode</label>
+            <select id="mode">
+              <option value="iframe">iframe</option>
+              <option value="native">native</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 12px">
+          <div>
+            <label for="returnUrl">returnUrl (optional)</label>
+            <input id="returnUrl" type="text" />
+          </div>
+          <div>
+            <label for="extraParams">extra params (optional)</label>
+            <input id="extraParams" type="text" placeholder="foo=bar&x=1" />
+          </div>
+        </div>
+
+        <div style="margin-top: 12px">
+          <button id="loadEnvBtn">Load App URLs from Server</button>
+          <button id="loadSampleBtn">Load Sample Token/Data</button>
+          <button id="buildBtn">Build Iframe URL</button>
+          <button id="openBtn">Open in New Tab</button>
+          <div id="status" class="status"></div>
+        </div>
+
+        <label for="iframeUrl" style="margin-top: 12px">Iframe URL</label>
+        <textarea id="iframeUrl" readonly></textarea>
+      </div>
+
+      <div class="card">
+        <h2>Preview</h2>
+        <div class="hint">This loads the app inside an iframe using the URL above.</div>
+        <iframe id="preview" title="H5 Preview"></iframe>
+      </div>
+    </div>
+
+    <script>
+      const appSelect = document.getElementById('app');
+      const appBaseUrlInput = document.getElementById('appBaseUrl');
+      const tokenInput = document.getElementById('token');
+      const accountNumberInput = document.getElementById('accountNumber');
+      const clientNumberInput = document.getElementById('clientNumber');
+      const modeSelect = document.getElementById('mode');
+      const returnUrlInput = document.getElementById('returnUrl');
+      const extraParamsInput = document.getElementById('extraParams');
+      const loadEnvBtn = document.getElementById('loadEnvBtn');
+      const loadSampleBtn = document.getElementById('loadSampleBtn');
+      const buildBtn = document.getElementById('buildBtn');
+      const openBtn = document.getElementById('openBtn');
+      const statusEl = document.getElementById('status');
+      const iframeUrlEl = document.getElementById('iframeUrl');
+      const previewEl = document.getElementById('preview');
+
+      const getApiBase = () => {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+        const basePath = parts[0] === 'vas' ? '/vas' : '';
+        return `${window.location.origin}${basePath}`;
+      };
+
+      const setStatus = (message, isError = false) => {
+        statusEl.textContent = message;
+        statusEl.classList.toggle('error', isError);
+      };
+
+      const setAppUrlFromConfig = (config) => {
+        if (appSelect.value === 'airtime') {
+          appBaseUrlInput.value = config.airtimeUrl || '';
+        } else {
+          appBaseUrlInput.value = config.billPaymentsUrl || '';
+        }
+      };
+
+      loadEnvBtn.addEventListener('click', async () => {
+        setStatus('Loading app URLs...');
+        try {
+          const response = await fetch(`${getApiBase()}/api/iframe-config`);
+          const data = await response.json();
+          if (!response.ok) {
+            setStatus('Failed to load app URLs.', true);
+            return;
+          }
+          setAppUrlFromConfig(data);
+          setStatus('Loaded app URLs.');
+        } catch (error) {
+          setStatus('Failed to load app URLs.', true);
+        }
+      });
+
+      appSelect.addEventListener('change', async () => {
+        try {
+          const response = await fetch(`${getApiBase()}/api/iframe-config`);
+          const data = await response.json();
+          if (response.ok) {
+            setAppUrlFromConfig(data);
+          }
+        } catch (error) {
+          // ignore
+        }
+      });
+
+      loadSampleBtn.addEventListener('click', async () => {
+        setStatus('Loading sample token/data...');
+        try {
+          const response = await fetch(
+            `${getApiBase()}/api/sample-iframe-data?app=${encodeURIComponent(appSelect.value)}`
+          );
+          const data = await response.json();
+          if (!response.ok) {
+            setStatus('Failed to load sample token/data.', true);
+            return;
+          }
+          if (data.appBaseUrl) {
+            appBaseUrlInput.value = data.appBaseUrl;
+          }
+          tokenInput.value = data.token || '';
+          accountNumberInput.value = data.accountNumber || '';
+          clientNumberInput.value = data.clientNumber || '';
+          setStatus('Loaded sample token/data.');
+        } catch (error) {
+          setStatus('Failed to load sample token/data.', true);
+        }
+      });
+
+      const buildUrl = () => {
+        const baseUrl = appBaseUrlInput.value.trim().replace(/\/+$/, '');
+        if (!baseUrl) {
+          setStatus('App base URL is required.', true);
+          return '';
+        }
+
+        const params = new URLSearchParams();
+        if (tokenInput.value.trim()) params.set('token', tokenInput.value.trim());
+        if (modeSelect.value) params.set('mode', modeSelect.value);
+        if (accountNumberInput.value.trim())
+          params.set('accountNumber', accountNumberInput.value.trim());
+        if (clientNumberInput.value.trim())
+          params.set('clientNumber', clientNumberInput.value.trim());
+        if (returnUrlInput.value.trim()) params.set('returnUrl', returnUrlInput.value.trim());
+
+        if (extraParamsInput.value.trim()) {
+          const extra = new URLSearchParams(extraParamsInput.value.trim());
+          extra.forEach((value, key) => params.set(key, value));
+        }
+
+        const url = `${baseUrl}/?${params.toString()}`;
+        iframeUrlEl.value = url;
+        previewEl.src = url;
+        setStatus('Iframe URL generated.');
+        return url;
+      };
+
+      buildBtn.addEventListener('click', () => {
+        buildUrl();
+      });
+
+      openBtn.addEventListener('click', () => {
+        const url = iframeUrlEl.value || buildUrl();
+        if (url) {
+          window.open(url, '_blank', 'noopener');
+        }
+      });
+
+      loadEnvBtn.click();
+    </script>
+  </body>
+</html>
+

@@ -7,7 +7,6 @@ import dotenv from 'dotenv';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import morgan from 'morgan';
-import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 
 dotenv.config();
@@ -37,22 +36,8 @@ app.use((req, res, next) => {
   return next();
 });
 
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 120,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+const isRateLimitDisabled = process.env.DISABLE_RATE_LIMIT === 'true';
 
-const tokenLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
-});
-
-app.use('/api', apiLimiter);
 
 const tokenRequestSchema = z.object({
   clientId: z.string().min(1),
@@ -86,7 +71,11 @@ app.get('/tester', (req, res) => {
   res.sendFile('tester.html', { root: 'public' });
 });
 
-app.post('/api/token/request', tokenLimiter, (req, res) => {
+app.get('/iframe-tester', (req, res) => {
+  res.sendFile('iframe-tester.html', { root: 'public' });
+});
+
+app.post('/api/token/request', (req, res) => {
   const parsed = tokenRequestSchema.safeParse(req.body || {});
   if (!parsed.success) {
     return sendError(res, 400, 'Invalid request body', 'INVALID_REQUEST', parsed.error.issues);
@@ -158,6 +147,7 @@ app.get('/api/validate-token', (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({ valid: true, payload: decoded });
   } catch (error) {
     if (error?.name === 'TokenExpiredError') {
@@ -173,6 +163,54 @@ app.get('/api/tester-config', (req, res) => {
     clientSecret: process.env.IBANK_CLIENT_SECRET || '',
     app: 'bill-payments',
     baseUrl: process.env.TOKEN_API_BASE_URL || '',
+  });
+});
+
+app.get('/api/iframe-config', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(200).json({
+    airtimeUrl: process.env.AIRTIME_APP_URL || 'https://h5-getbucks-airtime.vercel.app',
+    billPaymentsUrl:
+      process.env.BILL_PAYMENTS_APP_URL || 'https://h5-getbucks-bill-payments.vercel.app',
+  });
+});
+
+app.get('/api/sample-iframe-data', (req, res) => {
+  if (!process.env.JWT_SECRET) {
+    return sendError(res, 500, 'Server misconfigured: JWT_SECRET missing', 'SERVER_CONFIG');
+  }
+
+  const sampleApp = req.query.app || process.env.SAMPLE_APP || 'bill-payments';
+  if (!VALID_APPS[sampleApp]) {
+    return sendError(res, 400, 'Invalid app parameter', 'INVALID_APP', {
+      validApps: Object.keys(VALID_APPS),
+    });
+  }
+
+  const sample = {
+    accountNumber: process.env.SAMPLE_ACCOUNT_NUMBER || '00001203',
+    clientNumber: process.env.SAMPLE_CLIENT_NUMBER || '023557',
+    sessionID: process.env.SAMPLE_SESSION_ID || 'sample-session-guid',
+  };
+
+  const tokenPayload = {
+    clientId: process.env.IBANK_CLIENT_ID || 'sample-client-id',
+    app: sampleApp,
+    sessionID: sample.sessionID,
+    userId: 'sample-user',
+    issuedAt: Math.floor(Date.now() / 1000),
+  };
+
+  const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
+    expiresIn: TOKEN_EXPIRES_IN,
+  });
+
+  return res.status(200).json({
+    token,
+    accountNumber: sample.accountNumber,
+    clientNumber: sample.clientNumber,
+    app: sampleApp,
+    appBaseUrl: VALID_APPS[sampleApp],
   });
 });
 

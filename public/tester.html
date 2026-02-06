@@ -164,7 +164,7 @@
       const validateEndpointDisplay = document.getElementById('validateEndpointDisplay');
 
       const pathParts = window.location.pathname.split('/').filter(Boolean);
-      const basePath = pathParts.length > 0 ? `/${pathParts[0]}` : '';
+      const basePath = pathParts[0] === 'vas' ? '/vas' : '';
       baseUrlInput.value = `${window.location.origin}${basePath}`;
 
       const normalizeBaseUrl = () => baseUrlInput.value.replace(/\/+$/, '');

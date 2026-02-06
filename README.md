@@ -52,6 +52,12 @@ BILL_PAYMENTS_APP_URL=https://h5-getbucks-bill-payments.vercel.app
 # Optional overrides
 # TOKEN_EXPIRES_IN=1h
 # TOKEN_EXPIRES_IN_SECONDS=3600
+
+# Optional sample data for iframe tester
+# SAMPLE_APP=bill-payments
+# SAMPLE_ACCOUNT_NUMBER=00001203
+# SAMPLE_CLIENT_NUMBER=023557
+# SAMPLE_SESSION_ID=sample-session-guid
 ```
 
 ## Endpoints
