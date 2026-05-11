@@ -44,6 +44,10 @@ AIRTIME_APP_URL=https://h5-getbucks-airtime.vercel.app
 BILL_PAYMENTS_APP_URL=https://h5-getbucks-bill-payments.vercel.app
 TOKEN_EXPIRES_IN=25m
 TOKEN_EXPIRES_IN_SECONDS=1500
+HOT_RECHARGE_POST_PAYMENT_URL=https://asb.azure-api.net/vas/V2/PostPayment
+HOT_RECHARGE_SUBSCRIPTION_KEY=...
+HOT_RECHARGE_MERCHANT_ID=...
+HOT_RECHARGE_SIGNATURE=...
 ```
 
 ## 3) Nginx route (same VM)
@@ -88,4 +92,7 @@ https://4.222.185.132.nip.io/vas/
 Token endpoints:
 - `POST https://4.222.185.132.nip.io/vas/api/token/request`
 - `GET https://4.222.185.132.nip.io/vas/api/validate-token`
+
+Hot Recharge proxy:
+- `POST https://4.222.185.132.nip.io/vas/api/hot-recharge/post-payment`
 

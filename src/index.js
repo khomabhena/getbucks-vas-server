@@ -20,6 +20,8 @@ const VALID_APPS = {
   'bill-payments':
     process.env.BILL_PAYMENTS_APP_URL || 'https://h5-getbucks-bill-payments.vercel.app',
 };
+const HOT_RECHARGE_POST_PAYMENT_URL =
+  process.env.HOT_RECHARGE_POST_PAYMENT_URL || 'https://asb.azure-api.net/vas/V2/PostPayment';
 
 // Middleware
 app.set('trust proxy', 1);
@@ -212,6 +214,78 @@ app.get('/api/sample-iframe-data', (req, res) => {
     app: sampleApp,
     appBaseUrl: VALID_APPS[sampleApp],
   });
+});
+
+app.post('/api/hot-recharge/post-payment', async (req, res) => {
+  if (!process.env.HOT_RECHARGE_SUBSCRIPTION_KEY) {
+    return sendError(
+      res,
+      500,
+      'Server misconfigured: HOT_RECHARGE_SUBSCRIPTION_KEY missing',
+      'SERVER_CONFIG'
+    );
+  }
+
+  if (!process.env.HOT_RECHARGE_MERCHANT_ID || !process.env.HOT_RECHARGE_SIGNATURE) {
+    return sendError(
+      res,
+      500,
+      'Server misconfigured: HOT_RECHARGE_MERCHANT_ID or HOT_RECHARGE_SIGNATURE missing',
+      'SERVER_CONFIG'
+    );
+  }
+
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return sendError(res, 400, 'Invalid PostPayment payload', 'INVALID_REQUEST');
+  }
+
+  try {
+    const response = await fetch(HOT_RECHARGE_POST_PAYMENT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Ocp-Apim-Subscription-Key': process.env.HOT_RECHARGE_SUBSCRIPTION_KEY,
+        MerchantId: process.env.HOT_RECHARGE_MERCHANT_ID,
+        RequestTimestamp: String(Date.now()),
+        Signature: process.env.HOT_RECHARGE_SIGNATURE,
+      },
+      body: JSON.stringify(req.body),
+    });
+
+    const responseText = await response.text().catch(() => '');
+    let responseData = {};
+    if (responseText) {
+      try {
+        responseData = JSON.parse(responseText);
+      } catch {
+        responseData = { rawResponse: responseText };
+      }
+    }
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error:
+          responseData.ResultMessage ||
+          responseData.Message ||
+          responseData.error ||
+          responseData.message ||
+          response.statusText,
+        code: 'HOT_RECHARGE_POST_PAYMENT_FAILED',
+        details: responseData,
+      });
+    }
+
+    return res.status(200).json(responseData);
+  } catch (error) {
+    console.error('Hot Recharge PostPayment proxy failed:', error);
+    return sendError(
+      res,
+      502,
+      error.message || 'Hot Recharge PostPayment request failed',
+      'HOT_RECHARGE_PROXY_ERROR'
+    );
+  }
 });
 
 app.use('/api', (req, res) => {

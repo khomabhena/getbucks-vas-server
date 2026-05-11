@@ -49,6 +49,12 @@ IBANK_CLIENT_SECRET=your-ibank-client-secret
 JWT_SECRET=your-secret-key-min-32-chars
 AIRTIME_APP_URL=https://h5-getbucks-airtime.vercel.app
 BILL_PAYMENTS_APP_URL=https://h5-getbucks-bill-payments.vercel.app
+
+# Hot Recharge proxy (server-side only)
+HOT_RECHARGE_POST_PAYMENT_URL=https://asb.azure-api.net/vas/V2/PostPayment
+HOT_RECHARGE_SUBSCRIPTION_KEY=your-apim-subscription-key
+HOT_RECHARGE_MERCHANT_ID=your-merchant-id
+HOT_RECHARGE_SIGNATURE=your-signature
 # Optional overrides
 # TOKEN_EXPIRES_IN=1h
 # TOKEN_EXPIRES_IN_SECONDS=3600
@@ -68,6 +74,7 @@ BILL_PAYMENTS_APP_URL=https://h5-getbucks-bill-payments.vercel.app
 - `POST /api/token/request` - Token generation
 - `GET /api/validate-token` - Token validation
 - `GET /api/tester-config` - Tester defaults
+- `POST /api/hot-recharge/post-payment` - Server-side proxy to Hot Recharge PostPayment
 
 ### Error Response Format
 
