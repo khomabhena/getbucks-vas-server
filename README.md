@@ -55,6 +55,13 @@ HOT_RECHARGE_POST_PAYMENT_URL=https://asb.azure-api.net/vas/V2/PostPayment
 HOT_RECHARGE_SUBSCRIPTION_KEY=your-apim-subscription-key
 HOT_RECHARGE_MERCHANT_ID=your-merchant-id
 HOT_RECHARGE_SIGNATURE=your-signature
+
+# BankWare proxy (server-side only)
+BANKWARE_API_BASE_URL=http://s-bwopenapi.getbucks.co.zw
+BANKWARE_USERNAME=your-bankware-api-username
+BANKWARE_PASSWORD=your-bankware-api-password
+BANKWARE_SYSTEM_ID=live
+BANKWARE_GRANT_TYPE=password
 # Optional overrides
 # TOKEN_EXPIRES_IN=1h
 # TOKEN_EXPIRES_IN_SECONDS=3600
@@ -74,6 +81,8 @@ HOT_RECHARGE_SIGNATURE=your-signature
 - `POST /api/token/request` - Token generation
 - `GET /api/validate-token` - Token validation
 - `GET /api/tester-config` - Tester defaults
+- `POST /api/getbucks/token` - Server-side BankWare token proxy
+- `/api/getbucks/*` - Server-side BankWare API proxy
 - `POST /api/hot-recharge/post-payment` - Server-side proxy to Hot Recharge PostPayment
 
 ### Error Response Format

@@ -22,16 +22,22 @@ const VALID_APPS = {
 };
 const HOT_RECHARGE_POST_PAYMENT_URL =
   process.env.HOT_RECHARGE_POST_PAYMENT_URL || 'https://asb.azure-api.net/vas/V2/PostPayment';
+const BANKWARE_API_BASE_URL =
+  process.env.BANKWARE_API_BASE_URL || 'http://s-bwopenapi.getbucks.co.zw';
 
 // Middleware
 app.set('trust proxy', 1);
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 app.use(express.static('public'));
 app.use(morgan('combined'));
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Accept, Authorization, IFS-Program-Id'
+  );
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
   }
@@ -55,6 +61,26 @@ const sendError = (res, status, message, code, details) => {
   if (details) payload.details = details;
   return res.status(status).json(payload);
 };
+
+const proxyBankWareResponse = async (res, response) => {
+  const responseText = await response.text().catch(() => '');
+  if (!responseText) {
+    return res.sendStatus(response.status);
+  }
+
+  try {
+    return res.status(response.status).json(JSON.parse(responseText));
+  } catch {
+    return res.status(response.status).send(responseText);
+  }
+};
+
+const getBankWareTokenCredentials = () => ({
+  grant_type: process.env.BANKWARE_GRANT_TYPE || 'password',
+  username: process.env.BANKWARE_USERNAME || '',
+  password: process.env.BANKWARE_PASSWORD || '',
+  systemId: process.env.BANKWARE_SYSTEM_ID || '',
+});
 
 // Routes
 app.get('/', (req, res) => {
@@ -214,6 +240,88 @@ app.get('/api/sample-iframe-data', (req, res) => {
     app: sampleApp,
     appBaseUrl: VALID_APPS[sampleApp],
   });
+});
+
+app.post('/api/getbucks/token', async (req, res) => {
+  const credentials = getBankWareTokenCredentials();
+  if (!credentials.username || !credentials.password || !credentials.systemId) {
+    return sendError(
+      res,
+      500,
+      'Server misconfigured: BankWare token credentials missing',
+      'SERVER_CONFIG'
+    );
+  }
+
+  const formData = new URLSearchParams();
+  formData.append('grant_type', credentials.grant_type);
+  formData.append('username', credentials.username);
+  formData.append('password', credentials.password);
+  formData.append('systemId', credentials.systemId);
+
+  try {
+    const response = await fetch(`${BANKWARE_API_BASE_URL.replace(/\/$/, '')}/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+      },
+      body: formData.toString(),
+    });
+
+    return proxyBankWareResponse(res, response);
+  } catch (error) {
+    console.error('BankWare token proxy failed:', error);
+    return sendError(
+      res,
+      502,
+      error.message || 'BankWare token request failed',
+      'BANKWARE_PROXY_ERROR'
+    );
+  }
+});
+
+app.all('/api/getbucks/*', async (req, res) => {
+  const path = req.params[0] || '';
+  const query = req.originalUrl.includes('?') ? `?${req.originalUrl.split('?')[1]}` : '';
+  const targetUrl = `${BANKWARE_API_BASE_URL.replace(/\/$/, '')}/${path}${query}`;
+  const isBodylessMethod = req.method === 'GET' || req.method === 'HEAD';
+
+  const headers = {
+    Accept: req.get('Accept') || 'application/json',
+  };
+
+  const authorization = req.get('Authorization');
+  if (authorization) {
+    headers.Authorization = authorization;
+  }
+
+  const ifsProgramId = req.get('IFS-Program-Id');
+  if (ifsProgramId) {
+    headers['IFS-Program-Id'] = ifsProgramId;
+  }
+
+  if (!isBodylessMethod) {
+    headers['Content-Type'] = req.get('Content-Type') || 'application/json';
+  }
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: req.method,
+      headers,
+      body: isBodylessMethod ? undefined : JSON.stringify(req.body || {}),
+    });
+
+    return proxyBankWareResponse(res, response);
+  } catch (error) {
+    console.error('BankWare API proxy failed:', error);
+    return sendError(
+      res,
+      502,
+      error.message || 'BankWare API request failed',
+      'BANKWARE_PROXY_ERROR'
+    );
+  }
 });
 
 app.post('/api/hot-recharge/post-payment', async (req, res) => {
