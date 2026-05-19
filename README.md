@@ -7,7 +7,9 @@ Value Added Services (VAS) Server for GetBucks H5 Applications.
 ```
 24-getbucks-vas-server/
 -- src/
-   -- index.js          # Entry point
+   -- app.js            # Express app composition
+   -- index.js          # Server entry point
+   -- routes/           # API route modules
 -- public/
    -- tester.html       # Simple API tester
 -- package.json
@@ -41,7 +43,7 @@ Create a `.env` file in the root directory:
 
 ```env
 # Base URL for the token API (local or production)
-TOKEN_API_BASE_URL=http://localhost:3000
+TOKEN_API_BASE_URL=http://localhost:3001
 
 # Token API server configuration
 IBANK_CLIENT_ID=your-ibank-client-id
@@ -84,6 +86,10 @@ BANKWARE_GRANT_TYPE=password
 - `POST /api/getbucks/token` - Server-side BankWare token proxy
 - `/api/getbucks/*` - Server-side BankWare API proxy
 - `POST /api/hot-recharge/post-payment` - Server-side proxy to Hot Recharge PostPayment
+
+### Health Check
+
+Use `GET /health` to confirm the server is running after deployment.
 
 ### Error Response Format
 
