@@ -8,6 +8,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/getbucks-vas-server
   CONTAINER_NAME: getbucks-vas-server
+  BANKWARE_API_HOST: s-bwopenapi.getbucks.co.zw
 
 jobs:
   build-and-push:
@@ -57,11 +58,17 @@ jobs:
 
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            BANKWARE_HOST_IP="${{ secrets.BANKWARE_HOST_IP }}"
+            if [ -z "$BANKWARE_HOST_IP" ]; then
+              BANKWARE_HOST_IP="10.10.10.3"
+            fi
+
             docker stop ${{ env.CONTAINER_NAME }} || true
             docker rm ${{ env.CONTAINER_NAME }} || true
             docker run -d \
               --name ${{ env.CONTAINER_NAME }} \
               --env-file "$ENV_FILE_PATH" \
+              --add-host ${{ env.BANKWARE_API_HOST }}:${BANKWARE_HOST_IP} \
               -p 3001:3001 \
               --restart unless-stopped \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
