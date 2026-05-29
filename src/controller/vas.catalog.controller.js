@@ -33,7 +33,7 @@ const forwardVas = async (res, promise) => {
 
 export const connect = async (req, res) => forwardVas(res, getConnect());
 
-export const listServices = async (req, res) => forwardVas(res, getServices());
+export const listServices = async (req, res) => forwardVas(res, getServices(req.query));
 
 export const listCountries = async (req, res) => {
   const service = req.query.service;

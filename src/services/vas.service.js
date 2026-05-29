@@ -66,7 +66,7 @@ export const validatePayment = (body) => vasPost('/V2/ValidatePayment', body);
 
 export const postPayment = (body) => vasPost('/V2/PostPayment', body);
 
-export const getServices = () => vasGet('/V2/Services');
+export const getServices = (query = {}) => vasGet('/V2/Services', query);
 
 export const getCountries = (service) => vasGet('/V2/Countries', { service });
 
