@@ -1,0 +1,123 @@
+{
+  "id": "a1b2c3d4-vas-live-env-0001",
+  "name": "VAS Live",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "https://vas-live.azurewebsites.net",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "subscriptionKey",
+      "value": "7a18390309634d4799b63431cb4751f2",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "merchantId",
+      "value": "23de4621-ea24-433f-9b45-dc1e383d8c2c",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "signature",
+      "value": "S@mukute1983",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "countryCode",
+      "value": "ZW",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceId",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceAirtime",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceBundles",
+      "value": "3",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceElectricity",
+      "value": "6",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceEntertainment",
+      "value": "13",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "productIdAirtime",
+      "value": "HR_100_100",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "productIdDstv",
+      "value": "ES_DSTV",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "mobileNumber",
+      "value": "+263779325860",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "mobileNumberLocal",
+      "value": "0779325860",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "currency",
+      "value": "USD",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "paymentAmount",
+      "value": "0.50",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "samplePaymentRequestId",
+      "value": "eb7feb65-d9a5-19b7-e2b8-baf8a44a67a6",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "requestTimestamp",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "requestId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-05-21T00:00:00.000Z",
+  "_postman_exported_using": "Cursor"
+}

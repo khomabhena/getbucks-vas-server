@@ -34,20 +34,20 @@ Create `.env` on the VM:
 nano /home/adminuser/vas/getbucks-vas-server/.env
 ```
 
-Example `.env`:
+Example `.env` (see `.env.example` in repo):
 ```
 PORT=3001
 IBANK_CLIENT_ID=ibank-vas-h5-prod
-IBANK_CLIENT_SECRET=ibank-vas-h5-prod-...
-JWT_SECRET=your-secret-key-min-32-chars
+IBANK_CLIENT_SECRET=...
+JWT_SECRET=...min-32-chars...
 AIRTIME_APP_URL=https://h5-getbucks-airtime.vercel.app
 BILL_PAYMENTS_APP_URL=https://h5-getbucks-bill-payments.vercel.app
 TOKEN_EXPIRES_IN=25m
 TOKEN_EXPIRES_IN_SECONDS=1500
-HOT_RECHARGE_POST_PAYMENT_URL=https://asb.azure-api.net/vas/V2/PostPayment
-HOT_RECHARGE_SUBSCRIPTION_KEY=...
-HOT_RECHARGE_MERCHANT_ID=...
-HOT_RECHARGE_SIGNATURE=...
+VAS_API_BASE_URL=https://vas-live.azurewebsites.net
+VAS_SUBSCRIPTION_KEY=...
+VAS_MERCHANT_ID=...
+VAS_SIGNATURE=...
 BANKWARE_API_BASE_URL=http://s-bwopenapi.getbucks.co.zw
 BANKWARE_USERNAME=...
 BANKWARE_PASSWORD=...
@@ -98,8 +98,11 @@ Token endpoints:
 - `POST https://4.222.185.132.nip.io/vas/api/token/request`
 - `GET https://4.222.185.132.nip.io/vas/api/validate-token`
 
-Hot Recharge proxy:
-- `POST https://4.222.185.132.nip.io/vas/api/hot-recharge/post-payment`
+VAS catalog:
+- `GET https://4.222.185.132.nip.io/vas/api/vas/catalog/products?countryCode=ZW&service=1`
+
+VAS payment:
+- `POST https://4.222.185.132.nip.io/vas/api/vas/payment`
 
 BankWare proxy:
 - `POST https://4.222.185.132.nip.io/vas/api/getbucks/token`

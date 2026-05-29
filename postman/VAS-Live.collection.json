@@ -1,0 +1,535 @@
+{
+  "info": {
+    "_postman_id": "b2c3d4e5-vas-live-coll-0001",
+    "name": "VAS Live (cleaned)",
+    "description": "VAS V2 catalog + payments for https://vas-live.azurewebsites.net\n\n**Catalog flow:** run folder **Catalog** in order — Services → Countries → Products in service.\n\nSet `serviceId` and `countryCode` in the **VAS Live** environment between steps.\n\nSee postman/README.md.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const ts = Date.now().toString();",
+          "pm.collectionVariables.set('requestTimestamp', ts);",
+          "pm.environment.set('requestTimestamp', ts);",
+          "const rid = pm.variables.replaceIn('{{$guid}}');",
+          "pm.collectionVariables.set('requestId', rid);",
+          "pm.environment.set('requestId', rid);"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "https://vas-live.azurewebsites.net" },
+    { "key": "subscriptionKey", "value": "7a18390309634d4799b63431cb4751f2" },
+    { "key": "merchantId", "value": "23de4621-ea24-433f-9b45-dc1e383d8c2c" },
+    { "key": "signature", "value": "S@mukute1983" },
+    { "key": "requestTimestamp", "value": "" },
+    { "key": "requestId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Catalog",
+      "description": "Browse flow: **1 → Services** (pick `serviceId`) → **2 → Countries** → **3 → Products in service**.\n\nService IDs on live: `1` Airtime, `3` Bundles, `6` Electricity, `13` Entertainment.",
+      "item": [
+        {
+          "name": "1 — List services",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": "{{baseUrl}}/V2/Services"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.Services && j.Services.length) {",
+                  "  console.log('Services — set serviceId in environment to one of:');",
+                  "  j.Services.forEach(s => console.log(`  ${s.Id} = ${s.Name}`));",
+                  "  if (!pm.environment.get('serviceId')) {",
+                  "    pm.environment.set('serviceId', String(j.Services[0].Id));",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1b — List services (filter by country)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/Services?countryCode={{countryCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "Services"],
+              "query": [{ "key": "countryCode", "value": "{{countryCode}}", "description": "Optional filter" }]
+            }
+          }
+        },
+        {
+          "name": "2 — List countries for service",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/Countries?service={{serviceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "Countries"],
+              "query": [{ "key": "service", "value": "{{serviceId}}", "description": "From step 1 (e.g. 1=Airtime)" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.Countries && j.Countries.length) {",
+                  "  console.log('Countries — set countryCode in environment:');",
+                  "  j.Countries.forEach(c => console.log(`  ${c.Code} = ${c.Name}`));",
+                  "  pm.environment.set('countryCode', j.Countries[0].Code);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3 — Products in service",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/Products?countryCode={{countryCode}}&service={{serviceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "Products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}", "description": "From step 2 (e.g. ZW)" },
+                { "key": "service", "value": "{{serviceId}}", "description": "From step 1" },
+                { "key": "serviceProvider", "value": "HR_AllNetworks,Econet,NetOne,Telecel", "disabled": true },
+                { "key": "mobileNumber", "value": "{{mobileNumber}}", "disabled": true },
+                { "key": "currency", "value": "{{currency}}", "disabled": true },
+                { "key": "productType", "value": "VariableAmount", "disabled": true }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.Products && j.Products.length) {",
+                  "  console.log(`Found ${j.Products.length} products`);",
+                  "  j.Products.slice(0, 10).forEach(p => console.log(`  ${p.Id} | ${p.Name} | ${p.Currency}`));",
+                  "  pm.environment.set('productIdAirtime', j.Products[0].Id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3b — Products in service (service only, no country)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/Products?service={{serviceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "Products"],
+              "query": [{ "key": "service", "value": "{{serviceId}}" }]
+            }
+          }
+        },
+        {
+          "name": "4 — Single product by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/Product?id={{productIdAirtime}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "Product"],
+              "query": [{ "key": "id", "value": "{{productIdAirtime}}", "description": "Product Id from step 3" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog — quick picks by service",
+      "description": "Pre-set `serviceId` per request. Run **2 — Countries** then **3 — Products** from the Catalog folder, or use these shortcuts.",
+      "item": [
+        {
+          "name": "Products — Mobile Airtime (1)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/Products?countryCode={{countryCode}}&service=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "Products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Products — Mobile Bundles (3)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/Products?countryCode={{countryCode}}&service=3",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "Products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "3" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Products — Electricity (6)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/Products?countryCode={{countryCode}}&service=6",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "Products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "6" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Products — Entertainment / DSTV (13)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/Products?countryCode={{countryCode}}&service=13",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "Products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "13" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Other",
+      "item": [
+        {
+          "name": "Connect (health)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/V2/Connect"
+          }
+        },
+        {
+          "name": "Service providers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/ServiceProviders?countryCode={{countryCode}}&service={{serviceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "ServiceProviders"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}", "disabled": true },
+                { "key": "service", "value": "{{serviceId}}", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "All products (no filters)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": "{{baseUrl}}/V2/Products"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "description": "⚠️ Live environment — PostPayment may charge real funds. Uses fresh `requestId` each run.",
+      "item": [
+        {
+          "name": "Validate payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Amount\": {{paymentAmount}},\n  \"Currency\": \"{{currency}}\",\n  \"ProductId\": \"{{productIdAirtime}}\",\n  \"RequestId\": \"{{requestId}}\",\n  \"Quantity\": 1,\n  \"BillReferenceNumber\": \"test-validate\",\n  \"CustomerDetails\": {\n    \"CustomerId\": \"test\",\n    \"Fullname\": \"Test User\",\n    \"MobileNumber\": \"{{mobileNumberLocal}}\",\n    \"EmailAddress\": \"test@example.com\"\n  },\n  \"POSDetails\": {\n    \"CashierId\": \"1\",\n    \"StoreId\": \"1\",\n    \"TerminalId\": \"1\"\n  },\n  \"CreditPartyIdentifiers\": [\n    {\n      \"IdentifierFieldName\": \"AccountNumber\",\n      \"IdentifierFieldValue\": \"{{mobileNumber}}\"\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/V2/ValidatePayment"
+          }
+        },
+        {
+          "name": "Post payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Amount\": {{paymentAmount}},\n  \"Currency\": \"{{currency}}\",\n  \"ProductId\": \"{{productIdAirtime}}\",\n  \"RequestId\": \"{{requestId}}\",\n  \"Quantity\": 1,\n  \"PaymentChannel\": \"API\",\n  \"PaymentReferenceNumber\": \"postman-test\",\n  \"BillReferenceNumber\": \"postman-test\",\n  \"CustomerDetails\": {\n    \"CustomerId\": \"test\",\n    \"Fullname\": \"Test User\",\n    \"MobileNumber\": \"{{mobileNumberLocal}}\",\n    \"EmailAddress\": \"test@example.com\"\n  },\n  \"POSDetails\": {\n    \"CashierId\": \"1\",\n    \"StoreId\": \"1\",\n    \"TerminalId\": \"1\"\n  },\n  \"CreditPartyIdentifiers\": [\n    {\n      \"IdentifierFieldName\": \"AccountNumber\",\n      \"IdentifierFieldValue\": \"{{mobileNumber}}\"\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/V2/PostPayment"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "  const j = pm.response.json();",
+                  "  if (j.RequestId) {",
+                  "    pm.environment.set('samplePaymentRequestId', j.RequestId);",
+                  "    console.log('Saved samplePaymentRequestId:', j.RequestId);",
+                  "  }",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/PaymentStatus?id={{samplePaymentRequestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "PaymentStatus"],
+              "query": [{ "key": "id", "value": "{{samplePaymentRequestId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Reverse payment",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/V2/ReversePayment?id={{samplePaymentRequestId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["V2", "ReversePayment"],
+              "query": [{ "key": "id", "value": "{{samplePaymentRequestId}}" }]
+            }
+          }
+        },
+        {
+          "name": "Get last token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ProductId\": \"{{productIdDstv}}\",\n  \"CreditPartyIdentifiers\": [\n    {\n      \"IdentifierFieldName\": \"AccountNumber\",\n      \"IdentifierFieldValue\": \"{{mobileNumber}}\"\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/V2/GetLastToken"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Account",
+      "item": [
+        {
+          "name": "Get VAS account balance",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AccountNumber\": \"{{mobileNumber}}\",\n  \"Aggregator\": 3,\n  \"Currency\": \"{{currency}}\",\n  \"RequestId\": \"{{requestId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/V2/GetVASAccountBalance"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin (use with caution)",
+      "description": "⚠️ Can change live product catalog. Disabled by default in Postman — enable query/body only when intended.",
+      "item": [
+        {
+          "name": "Refresh products (aggregator 7)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Aggregator\": 7\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/V2/RefreshProducts"
+          }
+        },
+        {
+          "name": "Set up default sub-services",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "text/plain" },
+              { "key": "Ocp-Apim-Subscription-Key", "value": "{{subscriptionKey}}" },
+              { "key": "MerchantId", "value": "{{merchantId}}" },
+              { "key": "RequestTimestamp", "value": "{{requestTimestamp}}" },
+              { "key": "Signature", "value": "{{signature}}" }
+            ],
+            "url": "{{baseUrl}}/V2/SetUpDefaultSubServices"
+          }
+        }
+      ]
+    }
+  ]
+}
