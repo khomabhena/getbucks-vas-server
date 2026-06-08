@@ -57,7 +57,13 @@ const parseCatalogQuery = (query) => {
   }
 
   const currency = resolveVasCurrency(requestedCurrency);
-  params.currency = currency;
+  // VAS tags local products as ZWG, ZWL, or ZIG — upstream currency=ZWG omits ZWL rows (e.g. DSTV).
+  // Fetch unscoped for local currency and rely on post-filter alias matching.
+  if (currency === 'ZWG') {
+    delete params.currency;
+  } else {
+    params.currency = currency;
+  }
 
   return { params, currency };
 };
