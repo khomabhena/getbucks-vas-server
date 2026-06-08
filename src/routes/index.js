@@ -19,6 +19,9 @@
  *   GET  /api/vas/catalog/products
  *   GET  /api/vas/catalog/products/:id
  *
+ * Payment callback
+ *   ALL  /api/payment/callback
+ *
  * VAS payment
  *   POST /api/vas/payment/validate → VAS /V2/ValidatePayment
  *   POST /api/vas/payment          → VAS /V2/PostPayment
@@ -36,6 +39,7 @@ import routerStatus from './status.route.js';
 import routerH5Token from './h5.token.route.js';
 import routerVasCatalog from './vas.catalog.route.js';
 import routerVasPayment from './vas.payment.route.js';
+import routerPaymentCallback from './payment.callback.route.js';
 import routerVasLegacy from './vas.legacy.route.js';
 import routerBankware from './bankware.route.js';
 
@@ -44,6 +48,7 @@ export function registerRoutes(app) {
   app.use('/api', routerH5Token);
   app.use('/api/vas/catalog', routerVasCatalog);
   app.use('/api/vas/payment', routerVasPayment);
+  app.use('/api/payment/callback', routerPaymentCallback);
   app.use('/api/hot-recharge', routerVasLegacy);
   app.use('/api/getbucks', routerBankware);
   app.use('/api', (req, res) => sendError(res, 404, 'Not found', 'NOT_FOUND'));

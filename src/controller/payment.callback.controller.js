@@ -1,0 +1,3 @@
+export const paymentCallback = async (req, res) => {
+  res.status(200).json({ code: 'SUCCESS' });
+};

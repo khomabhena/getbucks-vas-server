@@ -1,0 +1,153 @@
+{
+  "id": "c3d4e5f6-vas-bff-env-0001",
+  "name": "Getbucks VAS BFF (local)",
+  "values": [
+    {
+      "key": "bffBaseUrl",
+      "value": "http://localhost:3001",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "iBankClientId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "iBankClientSecret",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "h5App",
+      "value": "airtime",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "sessionId",
+      "value": "postman-session-001",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "h5Token",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "countryCode",
+      "value": "ZW",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceId",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceAirtime",
+      "value": "1",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceBundles",
+      "value": "3",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceElectricity",
+      "value": "6",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceEntertainment",
+      "value": "13",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceProvider",
+      "value": "HR_AllNetworks,Econet,NetOne,Telecel",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceProviderEconet",
+      "value": "HR_Econet",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "productId",
+      "value": "HR_100_100",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "productIdAirtime",
+      "value": "HR_100_100",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "productIdBundle",
+      "value": "HR_111_1HDBUS5",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "productIdDstv",
+      "value": "ES_DSTV",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "mobileNumber",
+      "value": "+263779325860",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "mobileNumberLocal",
+      "value": "0779325860",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "currency",
+      "value": "USD",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "paymentAmount",
+      "value": "1.00",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "requestId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "paymentReferenceNumber",
+      "value": "postman-bff-test",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2026-05-21T00:00:00.000Z",
+  "_postman_exported_using": "Cursor"
+}

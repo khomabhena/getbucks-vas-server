@@ -1,0 +1,577 @@
+{
+  "info": {
+    "_postman_id": "d4e5f6a7-vas-bff-coll-0001",
+    "name": "Getbucks VAS BFF",
+    "description": "24-getbucks-vas-server — catalog and payment via `/api/vas/*`.\n\nMerchant headers (`Ocp-Apim-Subscription-Key`, `MerchantId`, `Signature`) are added by the BFF from server `.env` — you do **not** send them from Postman.\n\n**Prerequisites:** `npm run dev` on port 3001 with `VAS_*` and (for H5 token) `JWT_SECRET` + `IBANK_*` set.\n\n**Catalog flow:** Status → Catalog folder in order.\n\n**Payments:** Validate before Post. Live VAS may charge real funds.\n\nSee `postman/README.md`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const rid = pm.variables.replaceIn('{{$guid}}');",
+          "pm.collectionVariables.set('requestId', rid);",
+          "pm.environment.set('requestId', rid);"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "bffBaseUrl", "value": "http://localhost:3001" },
+    { "key": "requestId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Status",
+      "item": [
+        {
+          "name": "Root",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{bffBaseUrl}}/"
+          }
+        },
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{bffBaseUrl}}/health"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('BFF is up', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "H5 / iBank",
+      "description": "Iframe token flow (unchanged paths). Set `iBankClientId` and `iBankClientSecret` in the environment from your server `.env`.",
+      "item": [
+        {
+          "name": "Request token (airtime)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{iBankClientId}}\",\n  \"clientSecret\": \"{{iBankClientSecret}}\",\n  \"app\": \"airtime\",\n  \"sessionID\": \"{{sessionId}}\",\n  \"userId\": \"postman-user\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{bffBaseUrl}}/api/token/request"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.token) {",
+                  "  pm.environment.set('h5Token', j.token);",
+                  "  console.log('Saved h5Token');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request token (bill-payments)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{iBankClientId}}\",\n  \"clientSecret\": \"{{iBankClientSecret}}\",\n  \"app\": \"bill-payments\",\n  \"sessionID\": \"{{sessionId}}\",\n  \"userId\": \"postman-user\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{bffBaseUrl}}/api/token/request"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.token) pm.environment.set('h5Token', j.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validate token",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{h5Token}}" }
+            ],
+            "url": "{{bffBaseUrl}}/api/validate-token"
+          }
+        },
+        {
+          "name": "Tester config",
+          "request": {
+            "method": "GET",
+            "url": "{{bffBaseUrl}}/api/tester-config"
+          }
+        },
+        {
+          "name": "Iframe config",
+          "request": {
+            "method": "GET",
+            "url": "{{bffBaseUrl}}/api/iframe-config"
+          }
+        },
+        {
+          "name": "Sample iframe data",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/sample-iframe-data?app={{h5App}}",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "sample-iframe-data"],
+              "query": [{ "key": "app", "value": "{{h5App}}", "description": "airtime | bill-payments" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "VAS Catalog",
+      "description": "Proxy to VAS `/V2/*`. Run in order:\n\n1 Services → 2 Countries → 3 Service providers → 4 Products → 5 Product by id\n\nService IDs: `1` Airtime, `3` Bundles, `6` Electricity, `13` Entertainment.",
+      "item": [
+        {
+          "name": "0 — Connect",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{bffBaseUrl}}/api/vas/catalog/connect"
+          }
+        },
+        {
+          "name": "1 — List services",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{bffBaseUrl}}/api/vas/catalog/services"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.Services && j.Services.length) {",
+                  "  console.log('Services — set serviceId to one of:');",
+                  "  j.Services.forEach(s => console.log(`  ${s.Id} = ${s.Name}`));",
+                  "  if (!pm.environment.get('serviceId')) {",
+                  "    pm.environment.set('serviceId', String(j.Services[0].Id));",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1b — List services (filter by country)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/services?countryCode={{countryCode}}",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "services"],
+              "query": [{ "key": "countryCode", "value": "{{countryCode}}" }]
+            }
+          }
+        },
+        {
+          "name": "2 — List countries for service",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/countries?service={{serviceId}}",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "countries"],
+              "query": [{ "key": "service", "value": "{{serviceId}}", "description": "e.g. 1=Airtime, 3=Bundles" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.Countries && j.Countries.length) {",
+                  "  j.Countries.forEach(c => console.log(`  ${c.Code} = ${c.Name}`));",
+                  "  pm.environment.set('countryCode', j.Countries[0].Code);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3 — List service providers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/service-providers?countryCode={{countryCode}}&service={{serviceId}}",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "service-providers"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "{{serviceId}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.ServiceProviders && j.ServiceProviders.length) {",
+                  "  j.ServiceProviders.forEach(p => console.log(`  ${p.Id} = ${p.Name}`));",
+                  "  pm.environment.set('serviceProvider', j.ServiceProviders[0].Id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4 — Products in service",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/products?countryCode={{countryCode}}&service={{serviceId}}",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "{{serviceId}}" },
+                { "key": "serviceProvider", "value": "{{serviceProvider}}", "disabled": true },
+                { "key": "serviceProviderId", "value": "{{serviceProvider}}", "disabled": true, "description": "H5 alias — forwarded as query if enabled" },
+                { "key": "mobileNumber", "value": "{{mobileNumber}}", "disabled": true },
+                { "key": "currency", "value": "{{currency}}", "disabled": true },
+                { "key": "productType", "value": "VariableAmount", "disabled": true }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.Products && j.Products.length) {",
+                  "  console.log(`Found ${j.Products.length} products`);",
+                  "  j.Products.slice(0, 10).forEach(p => console.log(`  ${p.Id} | ${p.Name} | ${p.Currency}`));",
+                  "  pm.environment.set('productId', j.Products[0].Id);",
+                  "  if (pm.environment.get('serviceId') === '1') {",
+                  "    pm.environment.set('productIdAirtime', j.Products[0].Id);",
+                  "  }",
+                  "  if (pm.environment.get('serviceId') === '3') {",
+                  "    pm.environment.set('productIdBundle', j.Products[0].Id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5 — Product by id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{bffBaseUrl}}/api/vas/catalog/products/{{productId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const p = j.ServiceProduct || j;",
+                  "if (p.Currency) pm.environment.set('currency', p.Currency);",
+                  "if (p.ProductType === 'FixedAmount' && p.Price) {",
+                  "  pm.environment.set('paymentAmount', String(p.Price));",
+                  "  console.log('Set paymentAmount to product price:', p.Price);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Catalog — quick picks",
+      "description": "Shortcuts with `serviceId` pre-set. Set `countryCode=ZW` and run **Product by id** from Catalog when needed.",
+      "item": [
+        {
+          "name": "Airtime — all-network products (service 1)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/products?countryCode={{countryCode}}&service=1&serviceProvider=HR_AllNetworks,Econet,NetOne,Telecel",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "1" },
+                { "key": "serviceProvider", "value": "HR_AllNetworks,Econet,NetOne,Telecel" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('serviceId', '1');",
+                  "const j = pm.response.json();",
+                  "if (j.Products && j.Products.length) {",
+                  "  pm.environment.set('productId', 'HR_100_100');",
+                  "  pm.environment.set('productIdAirtime', 'HR_100_100');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Airtime — product HR_100_100",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{bffBaseUrl}}/api/vas/catalog/products/HR_100_100"
+          }
+        },
+        {
+          "name": "Bundles — Econet products (service 3)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/products?countryCode={{countryCode}}&service=3&serviceProvider=HR_Econet",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "3" },
+                { "key": "serviceProvider", "value": "HR_Econet" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('serviceId', '3');",
+                  "pm.environment.set('productId', 'HR_111_1HDBUS5');",
+                  "pm.environment.set('productIdBundle', 'HR_111_1HDBUS5');",
+                  "pm.environment.set('paymentAmount', '1.00');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bundles — product HR_111_1HDBUS5",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{bffBaseUrl}}/api/vas/catalog/products/HR_111_1HDBUS5"
+          }
+        },
+        {
+          "name": "Electricity products (service 6)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/products?countryCode={{countryCode}}&service=6",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "6" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Entertainment / DSTV (service 13)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/products?countryCode={{countryCode}}&service=13",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "13" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Service providers — airtime (ZW, 1)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/service-providers?countryCode=ZW&service=1",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "service-providers"],
+              "query": [
+                { "key": "countryCode", "value": "ZW" },
+                { "key": "service", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Service providers — bundles (ZW, 3)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/service-providers?countryCode=ZW&service=3",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "service-providers"],
+              "query": [
+                { "key": "countryCode", "value": "ZW" },
+                { "key": "service", "value": "3" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "VAS Payment",
+      "description": "⚠️ Live upstream — Validate then Post may charge real funds. `requestId` is a new GUID each request (collection pre-request).",
+      "item": [
+        {
+          "name": "Validate payment (airtime)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Amount\": {{paymentAmount}},\n  \"Currency\": \"{{currency}}\",\n  \"ProductId\": \"{{productIdAirtime}}\",\n  \"RequestId\": \"{{requestId}}\",\n  \"Quantity\": 1,\n  \"BillReferenceNumber\": \"bff-validate\",\n  \"CustomerDetails\": {\n    \"CustomerId\": \"postman\",\n    \"Fullname\": \"Postman Test\",\n    \"MobileNumber\": \"{{mobileNumberLocal}}\",\n    \"EmailAddress\": \"test@example.com\"\n  },\n  \"POSDetails\": {\n    \"CashierId\": \"1\",\n    \"StoreId\": \"1\",\n    \"TerminalId\": \"1\"\n  },\n  \"CreditPartyIdentifiers\": [\n    {\n      \"IdentifierFieldName\": \"AccountNumber\",\n      \"IdentifierFieldValue\": \"{{mobileNumber}}\"\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{bffBaseUrl}}/api/vas/payment/validate"
+          }
+        },
+        {
+          "name": "Validate payment (bundle)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Amount\": {{paymentAmount}},\n  \"Currency\": \"{{currency}}\",\n  \"ProductId\": \"{{productIdBundle}}\",\n  \"RequestId\": \"{{requestId}}\",\n  \"Quantity\": 1,\n  \"BillReferenceNumber\": \"bff-validate-bundle\",\n  \"CustomerDetails\": {\n    \"CustomerId\": \"postman\",\n    \"Fullname\": \"Postman Test\",\n    \"MobileNumber\": \"{{mobileNumberLocal}}\",\n    \"EmailAddress\": \"test@example.com\"\n  },\n  \"POSDetails\": {\n    \"CashierId\": \"1\",\n    \"StoreId\": \"1\",\n    \"TerminalId\": \"1\"\n  },\n  \"CreditPartyIdentifiers\": [\n    {\n      \"IdentifierFieldName\": \"AccountNumber\",\n      \"IdentifierFieldValue\": \"{{mobileNumber}}\"\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{bffBaseUrl}}/api/vas/payment/validate"
+          }
+        },
+        {
+          "name": "Post payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Amount\": {{paymentAmount}},\n  \"Currency\": \"{{currency}}\",\n  \"ProductId\": \"{{productId}}\",\n  \"RequestId\": \"{{requestId}}\",\n  \"Quantity\": 1,\n  \"PaymentChannel\": \"API\",\n  \"PaymentReferenceNumber\": \"{{paymentReferenceNumber}}\",\n  \"BillReferenceNumber\": \"{{paymentReferenceNumber}}\",\n  \"CustomerDetails\": {\n    \"CustomerId\": \"postman\",\n    \"Fullname\": \"Postman Test\",\n    \"MobileNumber\": \"{{mobileNumberLocal}}\",\n    \"EmailAddress\": \"test@example.com\"\n  },\n  \"POSDetails\": {\n    \"CashierId\": \"1\",\n    \"StoreId\": \"1\",\n    \"TerminalId\": \"1\"\n  },\n  \"CreditPartyIdentifiers\": [\n    {\n      \"IdentifierFieldName\": \"AccountNumber\",\n      \"IdentifierFieldValue\": \"{{mobileNumber}}\"\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{bffBaseUrl}}/api/vas/payment"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "  const j = pm.response.json();",
+                  "  if (j.RequestId) console.log('Payment RequestId:', j.RequestId);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "VAS Legacy",
+      "description": "Deprecated alias — same handler as Post payment.",
+      "item": [
+        {
+          "name": "hot-recharge post-payment (deprecated)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Amount\": {{paymentAmount}},\n  \"Currency\": \"{{currency}}\",\n  \"ProductId\": \"{{productId}}\",\n  \"RequestId\": \"{{requestId}}\",\n  \"Quantity\": 1,\n  \"PaymentChannel\": \"API\",\n  \"PaymentReferenceNumber\": \"{{paymentReferenceNumber}}\",\n  \"BillReferenceNumber\": \"{{paymentReferenceNumber}}\",\n  \"CustomerDetails\": {\n    \"CustomerId\": \"postman\",\n    \"Fullname\": \"Postman Test\",\n    \"MobileNumber\": \"{{mobileNumberLocal}}\",\n    \"EmailAddress\": \"test@example.com\"\n  },\n  \"POSDetails\": {\n    \"CashierId\": \"1\",\n    \"StoreId\": \"1\",\n    \"TerminalId\": \"1\"\n  },\n  \"CreditPartyIdentifiers\": [\n    {\n      \"IdentifierFieldName\": \"AccountNumber\",\n      \"IdentifierFieldValue\": \"{{mobileNumber}}\"\n    }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{bffBaseUrl}}/api/hot-recharge/post-payment"
+          }
+        }
+      ]
+    }
+  ]
+}
