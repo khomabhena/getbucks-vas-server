@@ -27,6 +27,49 @@ export const requestBankWareToken = async () => {
   });
 };
 
+const parseJsonResponse = async (response) => {
+  const text = await response.text().catch(() => '');
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { rawResponse: text };
+    }
+  }
+  return { ok: response.ok, status: response.status, statusText: response.statusText, data };
+};
+
+export const getBankWareAccessToken = async () => {
+  const response = await requestBankWareToken();
+  const parsed = await parseJsonResponse(response);
+
+  if (!parsed.ok) {
+    const message = parsed.data.error_description || parsed.data.error || parsed.statusText;
+    throw new Error(message || 'BankWare token failed');
+  }
+
+  const accessToken = parsed.data.access_token;
+  if (!accessToken) {
+    throw new Error('BankWare token response missing access_token');
+  }
+
+  return accessToken;
+};
+
+export const getAccountByNumber = async (accountNumber) => {
+  const accessToken = await getBankWareAccessToken();
+  const response = await fetch(`${baseUrl()}/api/v2/accounts/${encodeURIComponent(accountNumber)}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  return parseJsonResponse(response);
+};
+
 export const proxyBankWareRequest = async (req) => {
   const path = req.params[0] || '';
   const query = req.originalUrl.includes('?') ? `?${req.originalUrl.split('?')[1]}` : '';
