@@ -39,6 +39,24 @@
       "enabled": true
     },
     {
+      "key": "accountNumber",
+      "value": "00000603",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "parentProductId",
+      "value": "PC_a8238734-bbbd-4ce2-999d-fb27397ef2d8",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "serviceVouchers",
+      "value": "26",
+      "type": "default",
+      "enabled": true
+    },
+    {
       "key": "countryCode",
       "value": "ZW",
       "type": "default",

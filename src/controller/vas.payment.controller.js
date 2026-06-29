@@ -1,4 +1,6 @@
 import { assertVasConfigured, postPayment, validatePayment } from '../services/vas.service.js';
+import { enrichPaymentBody } from '../services/paymentEnrichment.service.js';
+import { CreditPartyError } from '../utils/creditParty.js';
 import { sendError } from '../utils/http.js';
 
 const assertPaymentBody = (req, res) => {
@@ -35,13 +37,26 @@ const forwardVasPayment = async (res, promise, errorCode) => {
   }
 };
 
-/** Bill payments / VAS — validate before PostPayment */
-export const validateBeforePayment = async (req, res) => {
+const handlePayment = async (req, res, vasCall, errorCode) => {
   if (!assertPaymentBody(req, res)) return;
-  return forwardVasPayment(res, validatePayment(req.body), 'VAS_VALIDATE_PAYMENT_FAILED');
+
+  try {
+    const enrichedBody = await enrichPaymentBody(req.body);
+    return forwardVasPayment(res, vasCall(enrichedBody), errorCode);
+  } catch (error) {
+    if (error instanceof CreditPartyError) {
+      return sendError(res, 400, error.message, 'CREDIT_PARTY_IDENTIFIER_ERROR', {
+        field: error.fieldName || null,
+      });
+    }
+    console.error('Payment enrichment failed:', error);
+    return sendError(res, 500, error.message || 'Payment enrichment failed', 'PAYMENT_ENRICHMENT_ERROR');
+  }
 };
 
-export const createPayment = async (req, res) => {
-  if (!assertPaymentBody(req, res)) return;
-  return forwardVasPayment(res, postPayment(req.body), 'VAS_POST_PAYMENT_FAILED');
-};
+/** Bill payments / VAS — validate before PostPayment */
+export const validateBeforePayment = async (req, res) =>
+  handlePayment(req, res, validatePayment, 'VAS_VALIDATE_PAYMENT_FAILED');
+
+export const createPayment = async (req, res) =>
+  handlePayment(req, res, postPayment, 'VAS_POST_PAYMENT_FAILED');

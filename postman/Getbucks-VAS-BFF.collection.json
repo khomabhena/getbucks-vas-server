@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "d4e5f6a7-vas-bff-coll-0001",
     "name": "Getbucks VAS BFF",
-    "description": "24-getbucks-vas-server — catalog and payment via `/api/vas/*`.\n\nMerchant headers (`Ocp-Apim-Subscription-Key`, `MerchantId`, `Signature`) are added by the BFF from server `.env` — you do **not** send them from Postman.\n\n**Prerequisites:** `npm run dev` on port 3001 with `VAS_*` and (for H5 token) `JWT_SECRET` + `IBANK_*` set.\n\n**Catalog flow:** Status → Catalog folder in order.\n\n**Payments:** Validate before Post. Live VAS may charge real funds.\n\nSee `postman/README.md`.",
+    "description": "24-getbucks-vas-server — catalog and payment via `/api/vas/*`.\n\nMerchant headers are added by the BFF from server `.env`.\n\n**Catalog:** flat products OR category drill-down via `parentProduct` (airtime + bills). See `postman/CATALOG.md`.\n\n**Currency:** pass `currency=USD|ZWG|ZIG|ZWL` on products; default USD.\n\n**Prerequisites:** `npm run dev` on port 3001 with `VAS_*` set.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -155,7 +155,7 @@
     },
     {
       "name": "VAS Catalog",
-      "description": "Proxy to VAS `/V2/*`. Run in order:\n\n1 Services → 2 Countries → 3 Service providers → 4 Products → 5 Product by id\n\nService IDs: `1` Airtime, `3` Bundles, `6` Electricity, `13` Entertainment.",
+      "description": "Proxy to VAS `/V2/*`. Run in order:\n\n1 Services → 2 Countries → 3 Service providers → 4 Products → 5 Product by id\n\nIf step 4 returns `IsCategory: true`, use **Catalog — categories** folder with `parentProduct`.\n\nSee `postman/CATALOG.md`.",
       "item": [
         {
           "name": "0 — Connect",
@@ -279,6 +279,7 @@
                 { "key": "serviceProviderId", "value": "{{serviceProvider}}", "disabled": true, "description": "H5 alias — forwarded as query if enabled" },
                 { "key": "mobileNumber", "value": "{{mobileNumber}}", "disabled": true },
                 { "key": "currency", "value": "{{currency}}", "disabled": true },
+                { "key": "parentProduct", "value": "{{parentProductId}}", "disabled": true, "description": "Category id (PC_…) — loads child products" },
                 { "key": "productType", "value": "VariableAmount", "disabled": true }
               ]
             }
@@ -292,13 +293,19 @@
                   "const j = pm.response.json();",
                   "if (j.Products && j.Products.length) {",
                   "  console.log(`Found ${j.Products.length} products`);",
-                  "  j.Products.slice(0, 10).forEach(p => console.log(`  ${p.Id} | ${p.Name} | ${p.Currency}`));",
-                  "  pm.environment.set('productId', j.Products[0].Id);",
-                  "  if (pm.environment.get('serviceId') === '1') {",
-                  "    pm.environment.set('productIdAirtime', j.Products[0].Id);",
+                  "  j.Products.slice(0, 10).forEach(p => console.log(`  ${p.Id} | ${p.Name} | cat=${p.IsCategory} | ${p.Currency}`));",
+                  "  const category = j.Products.find(p => p.IsCategory);",
+                  "  const leaf = j.Products.find(p => !p.IsCategory && p.Price > 0) || j.Products.find(p => !p.IsCategory);",
+                  "  if (category) {",
+                  "    pm.environment.set('parentProductId', category.Id);",
+                  "    console.log('Category found — run step 4b with parentProduct:', category.Id);",
                   "  }",
-                  "  if (pm.environment.get('serviceId') === '3') {",
-                  "    pm.environment.set('productIdBundle', j.Products[0].Id);",
+                  "  if (leaf) {",
+                  "    pm.environment.set('productId', leaf.Id);",
+                  "    if (pm.environment.get('serviceId') === '1') pm.environment.set('productIdAirtime', leaf.Id);",
+                  "    if (pm.environment.get('serviceId') === '3') pm.environment.set('productIdBundle', leaf.Id);",
+                  "  } else if (j.Products[0]) {",
+                  "    pm.environment.set('productId', j.Products[0].Id);",
                   "  }",
                   "}"
                 ]
@@ -330,6 +337,152 @@
               }
             }
           ]
+        }
+      ]
+    },
+    {
+      "name": "Catalog — categories (parentProduct)",
+      "description": "Hierarchical catalog: when `IsCategory: true`, drill down with `parentProduct`. Works for **airtime** (e.g. Buddie vouchers) and **bills** (grouped utilities/education).\n\nSee `postman/CATALOG.md`.",
+      "item": [
+        {
+          "name": "Account currency (H5 flow)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{bffBaseUrl}}/api/accounts/{{accountNumber}}/currency"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.vasCurrency) {",
+                  "  pm.environment.set('currency', j.vasCurrency);",
+                  "  console.log('vasCurrency:', j.vasCurrency);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4a — Airtime top-level (may return categories)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/products?countryCode={{countryCode}}&service=1&serviceProvider=PC_ECONET&currency={{currency}}",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "1" },
+                { "key": "serviceProvider", "value": "PC_ECONET" },
+                { "key": "currency", "value": "{{currency}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.Products) {",
+                  "  j.Products.forEach(p => console.log(`${p.Id} | cat=${p.IsCategory} | ${p.Name}`));",
+                  "  const cat = j.Products.find(p => p.IsCategory);",
+                  "  if (cat) pm.environment.set('parentProductId', cat.Id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4b — Products under category (parentProduct)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/products?parentProduct={{parentProductId}}&currency={{currency}}",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "products"],
+              "query": [
+                { "key": "parentProduct", "value": "{{parentProductId}}", "description": "Category id from step 4a (PC_…)" },
+                { "key": "currency", "value": "{{currency}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j.Products && j.Products.length) {",
+                  "  const leaf = j.Products.find(p => !p.IsCategory) || j.Products[0];",
+                  "  pm.environment.set('productId', leaf.Id);",
+                  "  pm.environment.set('productIdAirtime', leaf.Id);",
+                  "  if (leaf.Price) pm.environment.set('paymentAmount', String(leaf.Price));",
+                  "  console.log('Leaf product:', leaf.Id, leaf.Name);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4a — Bills top-level (electricity, service 6)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/products?countryCode={{countryCode}}&service=6&currency={{currency}}",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "products"],
+              "query": [
+                { "key": "countryCode", "value": "{{countryCode}}" },
+                { "key": "service", "value": "6" },
+                { "key": "currency", "value": "{{currency}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('serviceId', '6');",
+                  "const j = pm.response.json();",
+                  "if (j.Products) {",
+                  "  const cat = j.Products.find(p => p.IsCategory);",
+                  "  if (cat) {",
+                  "    pm.environment.set('parentProductId', cat.Id);",
+                  "    console.log('Bill category — run 4b with', cat.Id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5 — Leaf product by id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{bffBaseUrl}}/api/vas/catalog/products/{{productId}}?currency={{currency}}",
+              "host": ["{{bffBaseUrl}}"],
+              "path": ["api", "vas", "catalog", "products", "{{productId}}"],
+              "query": [{ "key": "currency", "value": "{{currency}}" }]
+            }
+          }
         }
       ]
     },

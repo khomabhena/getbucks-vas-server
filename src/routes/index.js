@@ -16,15 +16,17 @@
  *   GET  /api/vas/catalog/services
  *   GET  /api/vas/catalog/countries?service=
  *   GET  /api/vas/catalog/service-providers?countryCode=&service=
- *   GET  /api/vas/catalog/products?currency=USD|ZWG|ZIG|ZWL
+ *   GET  /api/vas/catalog/products?countryCode=&service=&serviceProvider=&parentProduct=&currency=
  *   GET  /api/vas/catalog/products/:id?currency=
+ *     See postman/CATALOG.md — flat list vs parentProduct category drill-down (airtime + bills).
  *
  * Payment callback
  *   ALL  /api/payment/callback
  *
- * VAS payment
+ * VAS payment (BFF enriches CreditPartyIdentifiers from product catalog)
  *   POST /api/vas/payment/validate → VAS /V2/ValidatePayment
  *   POST /api/vas/payment          → VAS /V2/PostPayment
+ *   Optional: Recipient { msisdn, accountNumber, ... } — field names resolved from catalog
  *
  * VAS legacy (deprecated)
  *   POST /api/hot-recharge/post-payment

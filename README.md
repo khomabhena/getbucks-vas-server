@@ -36,6 +36,8 @@ src/
 
 Full endpoint list: see comment block in `src/routes/index.js`.
 
+**Catalog guide** (products, categories, `parentProduct`, currency — airtime + bills): [`postman/CATALOG.md`](postman/CATALOG.md).
+
 ## Run
 
 ```bash
