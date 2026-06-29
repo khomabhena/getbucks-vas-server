@@ -27,6 +27,7 @@
  *   POST /api/vas/payment/validate → VAS /V2/ValidatePayment
  *   POST /api/vas/payment          → VAS /V2/PostPayment
  *   Optional: Recipient { msisdn, accountNumber, ... } — field names resolved from catalog
+ *   BFF normalizes digital-channel payloads to POS shape (CASH, Quantity 0, till POS ids)
  *
  * VAS legacy (deprecated)
  *   POST /api/hot-recharge/post-payment

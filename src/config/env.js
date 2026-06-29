@@ -29,3 +29,12 @@ export const getVasCredentials = () => ({
   merchantId: process.env.VAS_MERCHANT_ID || process.env.HOT_RECHARGE_MERCHANT_ID || '',
   signature: process.env.VAS_SIGNATURE || process.env.HOT_RECHARGE_SIGNATURE || '',
 });
+
+/** POS defaults for upstream PostPayment (matches live Postman / till configuration). */
+export const getVasPosDefaults = () => ({
+  paymentChannel: process.env.VAS_PAYMENT_CHANNEL || 'CASH',
+  storeId: process.env.VAS_POS_STORE_ID || 'KWAMEH',
+  terminalId: process.env.VAS_POS_TERMINAL_ID || 'Terminal 23',
+  cashierId: process.env.VAS_POS_CASHIER_ID || 'Monzeni S',
+  customerId: process.env.VAS_CUSTOMER_ID || 'WALKINCUSTOMER',
+});

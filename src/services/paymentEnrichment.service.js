@@ -1,4 +1,5 @@
 import { fetchProductById } from './productCatalog.service.js';
+import { normalizePaymentBody } from './paymentNormalization.service.js';
 import {
   buildCreditPartyIdentifiers,
   CreditPartyError,
@@ -15,21 +16,24 @@ export const enrichPaymentBody = async (body) => {
   }
 
   if (!body.ProductId) {
-    return stripBffPaymentFields(body);
+    return normalizePaymentBody(stripBffPaymentFields(body));
   }
 
   const product = await fetchProductById(body.ProductId, body.Currency);
   if (!product) {
     if (Array.isArray(body.CreditPartyIdentifiers) && body.CreditPartyIdentifiers.length > 0) {
-      return stripBffPaymentFields(body);
+      return normalizePaymentBody(stripBffPaymentFields(body));
     }
     throw new CreditPartyError(`Product not found: ${body.ProductId}`);
   }
 
   const creditPartyIdentifiers = buildCreditPartyIdentifiers(product, body);
 
-  return stripBffPaymentFields({
-    ...body,
-    CreditPartyIdentifiers: creditPartyIdentifiers,
-  });
+  return normalizePaymentBody(
+    stripBffPaymentFields({
+      ...body,
+      CreditPartyIdentifiers: creditPartyIdentifiers,
+    }),
+    product
+  );
 };
