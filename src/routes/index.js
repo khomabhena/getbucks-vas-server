@@ -2,7 +2,7 @@
  * Route map
  *
  * Status
- *   GET  /  /health  /tester  /iframe-tester
+ *   GET  /  /health  /tester  /iframe-tester  /debug → redirects to H5 app /debug
  *
  * H5 / iBank / MB (unchanged paths)
  *   POST /api/token/request

@@ -7,5 +7,6 @@ routerStatus.get('/', statusController.root);
 routerStatus.get('/health', statusController.health);
 routerStatus.get('/tester', statusController.testerPage);
 routerStatus.get('/iframe-tester', statusController.iframeTesterPage);
+routerStatus.get('/debug', statusController.debugRedirect);
 
 export default routerStatus;
