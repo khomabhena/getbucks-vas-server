@@ -33,3 +33,21 @@ const legacy = buildCreditPartyIdentifiers(airtime, {
   ],
 });
 console.log('Legacy rewrite', legacy);
+
+const zesa = {
+  CreditPartyIdentifiers: [
+    { Required: true, Name: 'AccountNumber', RegexExpression: '' },
+    { Required: true, Name: 'NotifyNumber', RegexExpression: null },
+  ],
+  ServiceProvider: { Country: { Code: 'ZW' } },
+};
+
+const zesaBody = {
+  CreditPartyIdentifiers: [
+    { IdentifierFieldName: 'AccountNumber', IdentifierFieldValue: '37262778014' },
+    { IdentifierFieldName: 'NotifyNumber', IdentifierFieldValue: '0779325860' },
+  ],
+  CustomerDetails: { MobileNumber: '+263777077921' },
+};
+
+console.log('ZESA', buildCreditPartyIdentifiers(zesa, zesaBody));

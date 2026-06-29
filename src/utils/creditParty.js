@@ -46,7 +46,7 @@ export const stripCountryCode = (phoneNumber, countryCode) => {
   return cleaned.replace(/^\+/, '');
 };
 
-const PHONE_IDENTIFIER_FIELDS = new Set(['MemberNumber', 'AccountNumber', 'NotifyNumber']);
+const PHONE_IDENTIFIER_FIELDS = new Set(['MemberNumber', 'NotifyNumber']);
 
 const isPhoneLikeIdentifier = (fieldName, regexExpression) => {
   if (PHONE_IDENTIFIER_FIELDS.has(fieldName)) return true;
@@ -137,9 +137,15 @@ export const resolveValueForField = (fieldName, values) => {
       'phoneNumber',
       'phone',
       'memberNumber',
-      'accountNumber',
       'notifyNumber',
     ]) {
+      if (values[key]) return values[key];
+    }
+  }
+
+  if (fieldName === 'AccountNumber') {
+    if (values.accountNumber) return values.accountNumber;
+    for (const key of ['msisdn', 'mobileNumber', 'phoneNumber', 'phone', 'memberNumber']) {
       if (values[key]) return values[key];
     }
   }
