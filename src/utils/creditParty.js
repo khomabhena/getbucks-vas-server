@@ -46,23 +46,45 @@ export const stripCountryCode = (phoneNumber, countryCode) => {
   return cleaned.replace(/^\+/, '');
 };
 
-const PHONE_IDENTIFIER_FIELDS = new Set(['MemberNumber', 'NotifyNumber']);
+const PHONE_IDENTIFIER_FIELDS = new Set(['NotifyNumber']);
 
-const isPhoneLikeIdentifier = (fieldName, regexExpression) => {
-  if (PHONE_IDENTIFIER_FIELDS.has(fieldName)) return true;
-  if (!regexExpression) return false;
-  return /263|\(0|\\d\{7\}/.test(regexExpression);
+const hasPhoneRegex = (regexExpression) =>
+  Boolean(regexExpression) && /263|\(0|\\d|\\\+/.test(regexExpression);
+
+const isNameLikeMemberNumber = (title = '', rawValue = '') => {
+  const normalizedTitle = String(title).toLowerCase();
+  if (
+    normalizedTitle.includes('name') ||
+    normalizedTitle.includes('full name') ||
+    normalizedTitle.includes('fullname')
+  ) {
+    return true;
+  }
+
+  const text = String(rawValue || '').trim();
+  return Boolean(text) && /[a-zA-Z]/.test(text) && !/\d{5,}/.test(text);
+};
+
+const isPhoneLikeIdentifier = (fieldName, regexExpression, title = '', rawValue = '') => {
+  if (fieldName === 'NotifyNumber') return true;
+
+  if (fieldName === 'MemberNumber') {
+    if (isNameLikeMemberNumber(title, rawValue)) return false;
+    return hasPhoneRegex(regexExpression);
+  }
+
+  return hasPhoneRegex(regexExpression);
 };
 
 /** National MSISDN format used by live VAS (e.g. 0771234567 for Zimbabwe). */
 export const formatIdentifierValue = (
   value,
-  { countryCode, countryIso, regexExpression, fieldName }
+  { countryCode, countryIso, regexExpression, fieldName, title }
 ) => {
   const trimmed = String(value ?? '').trim();
   if (!trimmed) return '';
 
-  if (!isPhoneLikeIdentifier(fieldName, regexExpression)) {
+  if (!isPhoneLikeIdentifier(fieldName, regexExpression, title, trimmed)) {
     return trimmed;
   }
 
@@ -106,6 +128,11 @@ export const collectRecipientValues = (body) => {
 
   addValue(values, ['accountNumber'], recipient.accountNumber);
   addValue(values, ['notifyNumber'], recipient.notifyNumber);
+  addValue(
+    values,
+    ['fullName', 'Fullname', 'FullName', 'name'],
+    recipient.fullName || recipient.fullname
+  );
 
   for (const item of body.CreditPartyIdentifiers || []) {
     const fieldName = resolveIdentifierFieldName(item);
@@ -123,14 +150,24 @@ export const collectRecipientValues = (body) => {
   return values;
 };
 
-export const resolveValueForField = (fieldName, values) => {
+export const resolveValueForField = (fieldName, values, meta = null) => {
   if (!fieldName) return null;
 
   if (values[fieldName]) return values[fieldName];
   const lower = fieldName.toLowerCase();
   if (values[lower]) return values[lower];
 
-  if (PHONE_IDENTIFIER_FIELDS.has(fieldName)) {
+  if (fieldName === 'MemberNumber') {
+    const title = meta?.Title || '';
+    if (isNameLikeMemberNumber(title, values.fullName || values.memberNumber)) {
+      if (values.fullName) return values.fullName;
+      if (values.Fullname) return values.Fullname;
+      if (values.name) return values.name;
+      if (values.memberNumber && /[a-zA-Z]/.test(String(values.memberNumber))) {
+        return values.memberNumber;
+      }
+    }
+
     for (const key of [
       'msisdn',
       'mobileNumber',
@@ -143,11 +180,23 @@ export const resolveValueForField = (fieldName, values) => {
     }
   }
 
+  if (fieldName === 'NotifyNumber') {
+    for (const key of ['notifyNumber', 'msisdn', 'mobileNumber', 'phoneNumber', 'phone']) {
+      if (values[key]) return values[key];
+    }
+  }
+
   if (fieldName === 'AccountNumber') {
     if (values.accountNumber) return values.accountNumber;
     for (const key of ['msisdn', 'mobileNumber', 'phoneNumber', 'phone', 'memberNumber']) {
       if (values[key]) return values[key];
     }
+  }
+
+  if (fieldName === 'FullName' || fieldName === 'Fullname') {
+    if (values.fullName) return values.fullName;
+    if (values.Fullname) return values.Fullname;
+    if (values.name) return values.name;
   }
 
   return null;
@@ -191,7 +240,7 @@ export const buildCreditPartyIdentifiers = (product, body) => {
   const built = [];
 
   for (const meta of metas) {
-    const raw = resolveValueForField(meta.fieldName, recipientValues);
+    const raw = resolveValueForField(meta.fieldName, recipientValues, meta);
 
     if (meta.Required && (raw == null || raw === '')) {
       throw new CreditPartyError(
@@ -207,9 +256,20 @@ export const buildCreditPartyIdentifiers = (product, body) => {
       countryIso,
       regexExpression: meta.RegexExpression,
       fieldName: meta.fieldName,
+      title: meta.Title,
     });
 
     assertRegex(formatted, meta.RegexExpression, meta.fieldName);
+
+    if (!formatted) {
+      if (meta.Required) {
+        throw new CreditPartyError(
+          `Invalid value for credit party identifier: ${meta.fieldName}`,
+          meta.fieldName
+        );
+      }
+      continue;
+    }
 
     built.push({
       IdentifierFieldName: meta.fieldName,
