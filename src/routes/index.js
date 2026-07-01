@@ -35,6 +35,9 @@
  * Account
  *   GET  /api/accounts/:accountNumber/currency
  *
+ * Payment config (server-side BankWare settlement accounts)
+ *   GET  /api/payment-config/merchant-account?app=bill-payments&currency=USD
+ *
  * BankWare
  *   POST /api/getbucks/token
  *   ALL  /api/getbucks/*
@@ -48,6 +51,7 @@ import routerVasPayment from './vas.payment.route.js';
 import routerPaymentCallback from './payment.callback.route.js';
 import routerVasLegacy from './vas.legacy.route.js';
 import routerAccount from './account.route.js';
+import routerPaymentConfig from './payment.config.route.js';
 import routerBankware from './bankware.route.js';
 
 export function registerRoutes(app) {
@@ -58,6 +62,7 @@ export function registerRoutes(app) {
   app.use('/api/payment/callback', routerPaymentCallback);
   app.use('/api/hot-recharge', routerVasLegacy);
   app.use('/api/accounts', routerAccount);
+  app.use('/api/payment-config', routerPaymentConfig);
   app.use('/api/getbucks', routerBankware);
   app.use('/api', (req, res) => sendError(res, 404, 'Not found', 'NOT_FOUND'));
 }
