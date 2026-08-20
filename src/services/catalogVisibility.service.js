@@ -239,3 +239,63 @@ export const omitEmptyProviders = async (data, { countryCode, service, currency 
     Providers: next,
   };
 };
+
+export const extractServices = (data) => data?.Services || data?.services || [];
+
+/**
+ * True when a service has at least one visible provider/product for country + currency.
+ */
+export const serviceHasVisibleCatalog = async ({ countryCode, service, currency }) => {
+  if (!countryCode || service === undefined || service === null || service === '') {
+    return false;
+  }
+
+  const visibleProviders = await collectProvidersWithVisibleCatalog({
+    countryCode,
+    service,
+    currency,
+  });
+  return visibleProviders.size > 0;
+};
+
+/**
+ * Drop services with no payable products for the country/currency.
+ * Requires countryCode — without it the list is returned unchanged.
+ */
+export const omitEmptyServices = async (data, { countryCode, currency }) => {
+  const services = extractServices(data);
+  if (!services.length || !countryCode) return data;
+
+  const normalized = resolveVasCurrency(currency);
+
+  const visibility = await Promise.all(
+    services.map(async (service) => {
+      const id = service?.Id ?? service?.id;
+      return {
+        id,
+        visible:
+          id !== undefined &&
+          id !== null &&
+          (await serviceHasVisibleCatalog({
+            countryCode,
+            service: id,
+            currency: normalized,
+          })),
+      };
+    })
+  );
+
+  const visibleIds = new Set(
+    visibility.filter((row) => row.visible).map((row) => String(row.id))
+  );
+
+  const next = services.filter((service) => {
+    const id = service?.Id ?? service?.id;
+    return id !== undefined && id !== null && visibleIds.has(String(id));
+  });
+
+  return {
+    ...data,
+    Services: next,
+  };
+};

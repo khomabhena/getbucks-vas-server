@@ -1,5 +1,5 @@
 /**
- * Smoke-test empty category / provider filtering against live VAS credentials.
+ * Smoke-test empty category / provider / service filtering against live VAS credentials.
  * Usage: node scripts/test-catalog-visibility.mjs
  */
 import 'dotenv/config';
@@ -7,9 +7,14 @@ import {
   collectProvidersWithVisibleCatalog,
   omitEmptyCategories,
   omitEmptyProviders,
+  omitEmptyServices,
 } from '../src/services/catalogVisibility.service.js';
 import { filterProductsByCurrency } from '../src/utils/currency.js';
-import { getProducts, getServiceProviders } from '../src/services/vas.service.js';
+import {
+  getProducts,
+  getServiceProviders,
+  getServices,
+} from '../src/services/vas.service.js';
 
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -68,8 +73,6 @@ const run = async () => {
 
   assert(categories.length === 1, 'PC_AU should keep its non-empty USD category');
 
-  // Empty-category probe: a ZWG-only parent should drop when currency=USD.
-  // Use PN_AU products path — NOTFOUND upstream is ok; synthetic empty check via known empty.
   const emptyProbe = await omitEmptyCategories(
     {
       Status: 'FOUND',
@@ -88,6 +91,28 @@ const run = async () => {
     (emptyProbe.Products || []).length === 0,
     'Category with no children should be omitted'
   );
+
+  const servicesResult = await getServices({ countryCode });
+  assert(servicesResult.ok, `services failed: ${servicesResult.status}`);
+
+  const filteredServices = await omitEmptyServices(servicesResult.data, {
+    countryCode,
+    currency,
+  });
+  const servicesBefore = (servicesResult.data.Services || []).map((s) => `${s.Id}:${s.Name}`);
+  const servicesAfter = (filteredServices.Services || []).map((s) => `${s.Id}:${s.Name}`);
+  const serviceIdsAfter = (filteredServices.Services || []).map((s) => Number(s.Id));
+
+  console.log(`Services before: ${servicesBefore.length}, after USD filter: ${servicesAfter.length}`);
+  console.log(
+    'Dropped services:',
+    servicesBefore.filter((row) => !servicesAfter.includes(row)).join(', ') || '(none)'
+  );
+
+  assert(servicesBefore.some((row) => row.startsWith('24:')), 'upstream should include Gaming');
+  assert(!serviceIdsAfter.includes(24), 'Gaming (24) should be hidden when it has no USD products');
+  assert(serviceIdsAfter.includes(9), 'Education should remain');
+  assert(serviceIdsAfter.includes(6), 'Pre-paid Electricity should remain');
 
   console.log('OK — catalog visibility checks passed');
 };

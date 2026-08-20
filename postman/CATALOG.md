@@ -152,6 +152,7 @@ After currency filtering the BFF also:
 
 1. **`GET /products`** — drops `IsCategory: true` rows that have **no payable children** for the requested currency (probes `parentProduct`, cached ~5 min).
 2. **`GET /service-providers`** — drops providers with **no leaves and no non-empty categories** for the currency (defaults to `USD` when `currency` is omitted).
+3. **`GET /services?countryCode=`** — drops services with **no payable products** for that country + currency (defaults to `USD`). Example: Gaming (`24`) is hidden for ZW/USD when VAS returns no products.
 
 Example: Education `PN_AU` (ZWG-only tuition) is hidden for `currency=USD`; `PC_AU` stays because its USD category has tuition leaves.
 

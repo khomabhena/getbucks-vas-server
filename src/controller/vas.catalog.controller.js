@@ -10,6 +10,7 @@ import {
 import {
   omitEmptyCategories,
   omitEmptyProviders,
+  omitEmptyServices,
 } from '../services/catalogVisibility.service.js';
 import {
   filterProductsByCurrency,
@@ -74,7 +75,21 @@ const parseCatalogQuery = (query) => {
 
 export const connect = async (req, res) => forwardVas(res, getConnect());
 
-export const listServices = async (req, res) => forwardVas(res, getServices(req.query));
+export const listServices = async (req, res) => {
+  const { countryCode, currency: requestedCurrency } = req.query;
+
+  if (requestedCurrency && !isSupportedVasCurrency(requestedCurrency)) {
+    return sendError(res, 400, 'Unsupported currency. Use USD or ZWG/ZIG/ZWL', 'INVALID_REQUEST');
+  }
+
+  // Default USD. Without countryCode we cannot probe products — return upstream list as-is.
+  const currency = resolveVasCurrency(requestedCurrency);
+
+  return forwardVas(res, getServices(req.query), async (data) => {
+    if (!countryCode) return data;
+    return omitEmptyServices(data, { countryCode, currency });
+  });
+};
 
 export const listCountries = async (req, res) => {
   const service = req.query.service;
