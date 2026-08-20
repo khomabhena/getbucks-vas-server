@@ -146,6 +146,15 @@ Then validate/post with the **leaf** `ProductId`.
 
 For **ZWG accounts**, the BFF fetches products without upstream `currency=` (VAS splits `ZWG` vs `ZWL` tags) and post-filters by alias so DSTV (`ZWL`) is not dropped.
 
+### Empty catalog filtering (BFF)
+
+After currency filtering the BFF also:
+
+1. **`GET /products`** — drops `IsCategory: true` rows that have **no payable children** for the requested currency (probes `parentProduct`, cached ~5 min).
+2. **`GET /service-providers`** — drops providers with **no leaves and no non-empty categories** for the currency (defaults to `USD` when `currency` is omitted).
+
+Example: Education `PN_AU` (ZWG-only tuition) is hidden for `currency=USD`; `PC_AU` stays because its USD category has tuition leaves.
+
 ---
 
 ## H5 app mapping

@@ -8,6 +8,10 @@ import {
   getServices,
 } from '../services/vas.service.js';
 import {
+  omitEmptyCategories,
+  omitEmptyProviders,
+} from '../services/catalogVisibility.service.js';
+import {
   filterProductsByCurrency,
   isSupportedVasCurrency,
   productMatchesCurrency,
@@ -31,7 +35,7 @@ const forwardVas = async (res, promise, transform) => {
       });
     }
 
-    const payload = transform ? transform(result.data) : result.data;
+    const payload = transform ? await transform(result.data) : result.data;
     if (payload === null) {
       return sendError(res, 404, 'Product not found for currency', 'NOT_FOUND');
     }
@@ -81,7 +85,7 @@ export const listCountries = async (req, res) => {
 };
 
 export const listServiceProviders = async (req, res) => {
-  const { countryCode, service } = req.query;
+  const { countryCode, service, currency: requestedCurrency } = req.query;
   if (!countryCode || !service) {
     return sendError(
       res,
@@ -90,7 +94,17 @@ export const listServiceProviders = async (req, res) => {
       'INVALID_REQUEST'
     );
   }
-  return forwardVas(res, getServiceProviders({ countryCode, service }));
+
+  if (requestedCurrency && !isSupportedVasCurrency(requestedCurrency)) {
+    return sendError(res, 400, 'Unsupported currency. Use USD or ZWG/ZIG/ZWL', 'INVALID_REQUEST');
+  }
+
+  // Default USD so empty ZWG-only providers (e.g. PN_AU) are hidden for bill-payments H5.
+  const currency = resolveVasCurrency(requestedCurrency);
+
+  return forwardVas(res, getServiceProviders({ countryCode, service }), (data) =>
+    omitEmptyProviders(data, { countryCode, service, currency })
+  );
 };
 
 export const listProducts = async (req, res) => {
@@ -100,7 +114,10 @@ export const listProducts = async (req, res) => {
   }
 
   const { params, currency } = parsed;
-  return forwardVas(res, getProducts(params), (data) => filterProductsByCurrency(data, currency));
+  return forwardVas(res, getProducts(params), async (data) => {
+    const filtered = filterProductsByCurrency(data, currency);
+    return omitEmptyCategories(filtered, currency);
+  });
 };
 
 export const getProductById = async (req, res) => {
@@ -118,6 +135,7 @@ export const getProductById = async (req, res) => {
 
   return forwardVas(res, getProduct(id), (data) => {
     const product = data.ServiceProduct || data.Product || data;
+    if (product?.IsCategory === true) return data;
     return productMatchesCurrency(product, currency) ? data : null;
   });
 };

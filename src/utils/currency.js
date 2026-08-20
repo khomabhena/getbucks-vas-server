@@ -26,11 +26,21 @@ export const resolveVasCurrency = (code) => {
 export const productCurrency = (product) =>
   normalizeVasCurrency(product?.Currency || product?.currency);
 
+const isCategoryProduct = (product) =>
+  product?.IsCategory === true || product?.isCategory === true;
+
+/**
+ * Keep leaf products matching currency. Categories are kept for a follow-up
+ * empty-category probe (they often lack a meaningful Currency tag).
+ */
 export const filterProductsByCurrency = (data, currency) => {
   const normalized = resolveVasCurrency(currency);
 
   const products = data.Products || data.ServiceProducts || data.products || [];
-  const filtered = products.filter((product) => productCurrency(product) === normalized);
+  const filtered = products.filter((product) => {
+    if (isCategoryProduct(product)) return true;
+    return productCurrency(product) === normalized;
+  });
 
   return {
     ...data,
