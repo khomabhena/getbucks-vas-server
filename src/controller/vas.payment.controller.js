@@ -37,11 +37,11 @@ const forwardVasPayment = async (res, promise, errorCode) => {
   }
 };
 
-const handlePayment = async (req, res, vasCall, errorCode) => {
+const handlePayment = async (req, res, vasCall, errorCode, stage) => {
   if (!assertPaymentBody(req, res)) return;
 
   try {
-    const enrichedBody = await enrichPaymentBody(req.body);
+    const enrichedBody = await enrichPaymentBody(req.body, { stage });
     return forwardVasPayment(res, vasCall(enrichedBody), errorCode);
   } catch (error) {
     if (error instanceof CreditPartyError) {
@@ -56,7 +56,7 @@ const handlePayment = async (req, res, vasCall, errorCode) => {
 
 /** Bill payments / VAS — validate before PostPayment */
 export const validateBeforePayment = async (req, res) =>
-  handlePayment(req, res, validatePayment, 'VAS_VALIDATE_PAYMENT_FAILED');
+  handlePayment(req, res, validatePayment, 'VAS_VALIDATE_PAYMENT_FAILED', 'validate');
 
 export const createPayment = async (req, res) =>
-  handlePayment(req, res, postPayment, 'VAS_POST_PAYMENT_FAILED');
+  handlePayment(req, res, postPayment, 'VAS_POST_PAYMENT_FAILED', 'post');

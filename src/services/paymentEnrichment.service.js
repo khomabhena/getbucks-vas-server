@@ -1,6 +1,8 @@
 import { fetchProductById } from './productCatalog.service.js';
 import { normalizePaymentBody } from './paymentNormalization.service.js';
 import {
+  assertIdentifierLimits,
+  assertPaymentCode,
   buildCreditPartyIdentifiers,
   CreditPartyError,
   getProductCreditPartyMeta,
@@ -30,8 +32,10 @@ function hasCompleteCreditPartyIdentifiers(product, body) {
 /**
  * Enrich a VAS payment body using catalog CreditPartyIdentifiers for the ProductId.
  * H5 apps may send Recipient { msisdn, accountNumber, ... } or legacy CreditPartyIdentifiers.
+ *
+ * @param {'validate'|'post'} [options.stage] - ValidatePayment vs PostPayment
  */
-export const enrichPaymentBody = async (body) => {
+export const enrichPaymentBody = async (body, { stage = 'post' } = {}) => {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     throw new CreditPartyError('Invalid payment payload');
   }
@@ -48,11 +52,13 @@ export const enrichPaymentBody = async (body) => {
     throw new CreditPartyError(`Product not found: ${body.ProductId}`);
   }
 
-  if (hasCompleteCreditPartyIdentifiers(product, body)) {
-    return normalizePaymentBody(stripBffPaymentFields(body), product);
-  }
+  assertPaymentCode(product, body);
 
-  const creditPartyIdentifiers = buildCreditPartyIdentifiers(product, body);
+  const creditPartyIdentifiers = hasCompleteCreditPartyIdentifiers(product, body)
+    ? body.CreditPartyIdentifiers
+    : buildCreditPartyIdentifiers(product, body, { stage });
+
+  assertIdentifierLimits(creditPartyIdentifiers);
 
   return normalizePaymentBody(
     stripBffPaymentFields({

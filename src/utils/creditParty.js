@@ -217,12 +217,25 @@ const assertRegex = (formatted, regexExpression, fieldName) => {
   }
 };
 
-export const buildCreditPartyIdentifiers = (product, body) => {
+/** Primary identifier = first required catalog identifier (falls back to the first one). */
+export const getPrimaryCreditPartyMeta = (product) => {
+  const metas = getProductCreditPartyMeta(product);
+  return metas.find((meta) => meta.Required) || metas[0] || null;
+};
+
+/**
+ * @param {'validate'|'post'} [options.stage] - On 'validate', missing non-primary required
+ *   identifiers (e.g. StudentName, Semester for universities) are skipped: VAS ValidatePayment
+ *   only checks the account; PostPayment must carry every required identifier.
+ */
+export const buildCreditPartyIdentifiers = (product, body, { stage = 'post' } = {}) => {
   const metas = getProductCreditPartyMeta(product);
 
   if (!metas.length) {
     return Array.isArray(body.CreditPartyIdentifiers) ? body.CreditPartyIdentifiers : [];
   }
+
+  const primaryFieldName = getPrimaryCreditPartyMeta(product)?.fieldName || null;
 
   const countryIso =
     body.CountryCode ||
@@ -241,8 +254,13 @@ export const buildCreditPartyIdentifiers = (product, body) => {
 
   for (const meta of metas) {
     const raw = resolveValueForField(meta.fieldName, recipientValues, meta);
+    const isMissing = raw == null || raw === '';
 
-    if (meta.Required && (raw == null || raw === '')) {
+    if (isMissing && stage === 'validate' && meta.fieldName !== primaryFieldName) {
+      continue;
+    }
+
+    if (meta.Required && isMissing) {
       throw new CreditPartyError(
         `Credit party identifier(s) missing: ${meta.fieldName} is required for this product.`,
         meta.fieldName
@@ -278,6 +296,48 @@ export const buildCreditPartyIdentifiers = (product, body) => {
   }
 
   return built;
+};
+
+export const PAYMENT_REASON_MAX_LENGTH = 13;
+
+/** Products with PaymentCodeRequired (universities) must send one of the catalog PaymentCodes. */
+export const assertPaymentCode = (product, body) => {
+  const codes = Array.isArray(product?.PaymentCodes)
+    ? product.PaymentCodes.map((item) => item?.Code)
+        .filter((code) => code != null && code !== '')
+        .map(String)
+    : [];
+  const paymentCode =
+    body.PaymentCode != null && String(body.PaymentCode).trim() !== ''
+      ? String(body.PaymentCode).trim()
+      : null;
+
+  if (!paymentCode) {
+    if (product?.PaymentCodeRequired === true) {
+      throw new CreditPartyError('PaymentCode is required for this product.', 'PaymentCode');
+    }
+    return;
+  }
+
+  if (codes.length && !codes.includes(paymentCode)) {
+    throw new CreditPartyError(
+      `Invalid PaymentCode: ${paymentCode}. Allowed: ${codes.join(', ')}.`,
+      'PaymentCode'
+    );
+  }
+};
+
+export const assertIdentifierLimits = (identifiers = []) => {
+  for (const item of identifiers) {
+    if (resolveIdentifierFieldName(item) !== 'PaymentReason') continue;
+    const value = String(item.IdentifierFieldValue ?? '').trim();
+    if (value.length > PAYMENT_REASON_MAX_LENGTH) {
+      throw new CreditPartyError(
+        `PaymentReason must be ${PAYMENT_REASON_MAX_LENGTH} characters or fewer.`,
+        'PaymentReason'
+      );
+    }
+  }
 };
 
 const recipientCountryIso = (body) => {
