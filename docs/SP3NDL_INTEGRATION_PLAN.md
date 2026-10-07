@@ -95,8 +95,10 @@ Proposed until Sp3ndl confirms:
 
 | Sp3ndl field | Source |
 |---|---|
-| `firstname`, `surname`, `mobile` | SuperApp profile (already loaded in `AccountInput` customer details); ask only if missing |
-| `idNumber` | Customer enters once (SA ID / passport), unless the SuperApp profile has it |
+| `AppleseedAccountId` | Per customer, from the SuperApp or Sp3ndl |
+| `TerminalId` | `SUPERAPP` |
+| `firstname`, `surname`, `mobile`, `email` | SuperApp profile (already loaded in `AccountInput` customer details); ask only if missing |
+| `idNumber` | SuperApp profile if available, otherwise customer enters once (SA ID / passport) |
 | Recipient mobile (airtime) | `mobile`? — to confirm |
 | Meter number (electricity) | `accountNumber`? — to confirm |
 
@@ -107,7 +109,7 @@ in a "Your details" block. Only the recipient field (meter / mobile number) is s
 
 **Bill payments (`06-h5-bill-payments`)**
 
-- Country-aware currency: ZA → ZAR (today `catalogCurrency.js` is USD only).
+- ZAR products shown for ZA (done); SuperApp `payOrder` charges in ZAR.
 - Services shown for ZA: Pre-paid Electricity and Entertainment. Hide Money Transfer and Cashless Withdrawal
   (they need beneficiary bank details); vouchers and gift cards to decide.
 - Identity fields as in section 4.
@@ -120,29 +122,44 @@ in a "Your details" block. Only the recipient field (meter / mobile number) is s
 - Products: Vodacom, Telkom, Capitec Connect (variable amount), MTN R10 and AnyTime vouchers.
   No Cell C and no MTN direct top-up in UAT.
 
-## 6. Open questions
+## 6. Decisions and findings (7 Oct 2026)
+
+- **Money**: comes from the SuperApp wallet, which can charge in ZAR. SuperApp and the Sp3ndl wallet will be
+  integrated on their side.
+- **`AppleseedAccountId`**: per customer; provided by the SuperApp or by Sp3ndl.
+- **`TerminalId`**: `SUPERAPP` (from the Sp3ndl Postman collection).
+- **Identifiers**: the Postman examples send only the account holder's details (`firstname`, `surname`,
+  `idNumber`, `mobile`, plus `email` on post) — even for a voucher (product `3` = `SP_3` OTT Voucher). These come
+  from the customer profile, not per-bill input.
+- **Product ids**: `3` and `SP_3` behave the same.
+- **Status**: `/spendl/V2/SpendlPaymentStatus` works; the Postman `/wallets/V2/SpendlPaymentStatus` path returns 404.
+- **Balance**: `POST /wallets/V2/CheckSpendlAccountBalance { AppleseedAccountId }` works (example account
+  `1095362508280209536` returned `-827.78`).
+- **Validate (UAT)**: unknown account id → `FAILED` "Invalid Appleseed account id or account not created on Spendl".
+  Example account → `FAILEDREPEATABLE` "Failed to process your request. Please retry later." for every product tried
+  (`3`, `SP_76`, `SP_140`). Raised with Sp3ndl.
+- **Server today**: ZA catalog is live through the BFF; validate/post for `SP_*` return 501 until payments are built.
+
+## 7. Open questions
 
 For Sp3ndl / Appleseed:
 
-1. `AppleseedAccountId` and `TerminalId` values for UAT and production.
-2. Production `Signature` / `RequestTimestamp` algorithm (UAT accepts static values).
-3. Which identifier carries the meter number and the airtime recipient? Are `firstname` / `surname` /
-   `idNumber` / `mobile` the payer's details (KYC) or the recipient's? Is `idNumber` mandatory for airtime?
-4. Meaning of `TotalCharges` and who bears it.
-5. Full list of `Status` values (e.g. `SUCCESSFUL`, `PENDING`, `FAILED`), timeout and reversal behaviour.
-6. Settlement: is the merchant account prefunded in ZAR?
-7. Production base URL and keys; whether `SP_*` product IDs are stable between UAT and production.
+1. Why validate returns `FAILEDREPEATABLE` for every product (negative test balance?); a working UAT test account.
+2. How the BFF gets a customer's `AppleseedAccountId` (SuperApp profile / token, or a Sp3ndl lookup by mobile / ID).
+3. Which identifier carries the meter number (electricity) and the airtime recipient.
+4. Production `Signature` / `RequestTimestamp` algorithm (UAT accepts static values).
+5. Meaning of `TotalCharges`; full list of `Status` values; timeout and reversal behaviour.
+6. Production base URL and keys; whether `SP_*` product ids are stable between UAT and production.
 
 For us:
 
-1. Can the SuperApp wallet charge in ZAR, or is it USD only? If USD, we need an FX rate source and rounding rules.
-2. Which ZA services to show in bill payments.
-3. ZAR service charge limits.
+1. Which ZA services to show in bill payments.
+2. ZAR service charge limits.
 
-## 7. Phases
+## 8. Phases
 
-1. **Discovery**: answers to the open questions; one validate call on Mock Success (SP_76) to confirm the shape.
-2. **Server**: Sp3ndl service, catalog and payment routing, status endpoint (UAT).
+1. **Discovery**: answers to the open questions; a successful validate on Mock Success (SP_76).
+2. **Server**: Sp3ndl service and catalog routing (done); payment routing and status endpoint (UAT).
 3. **Bill payments app**: currency, identity fields, service filter, status polling.
 4. **Airtime app**: ZA carriers and products.
 5. **UAT end to end** with the mock products (success, out of stock, timeout), then production keys.
