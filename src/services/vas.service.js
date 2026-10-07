@@ -13,7 +13,7 @@ const vasHeaders = () => {
   };
 };
 
-const parseResponse = async (response) => {
+export const parseResponse = async (response) => {
   const responseText = await response.text().catch(() => '');
   let data = {};
   if (responseText) {

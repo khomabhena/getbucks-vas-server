@@ -1,5 +1,6 @@
 import { assertVasConfigured, postPayment, validatePayment } from '../services/vas.service.js';
 import { enrichPaymentBody } from '../services/paymentEnrichment.service.js';
+import { isSpendlProductId } from '../services/spendlCatalog.service.js';
 import { CreditPartyError } from '../utils/creditParty.js';
 import { sendError } from '../utils/http.js';
 
@@ -39,6 +40,15 @@ const forwardVasPayment = async (res, promise, errorCode) => {
 
 const handlePayment = async (req, res, vasCall, errorCode, stage) => {
   if (!assertPaymentBody(req, res)) return;
+
+  if (isSpendlProductId(req.body.ProductId)) {
+    return sendError(
+      res,
+      501,
+      'South Africa payments are not available yet.',
+      'SPENDL_PAYMENTS_NOT_ENABLED'
+    );
+  }
 
   try {
     const enrichedBody = await enrichPaymentBody(req.body, { stage });

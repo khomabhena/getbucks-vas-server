@@ -18,10 +18,19 @@ import {
   productMatchesCurrency,
   resolveVasCurrency,
 } from '../utils/currency.js';
+import { assertSpendlConfigured } from '../services/spendl.service.js';
+import {
+  getSpendlProductById,
+  isSpendlCountry,
+  isSpendlProductId,
+  listSpendlProducts,
+  listSpendlServiceProviders,
+  listSpendlServices,
+} from '../services/spendlCatalog.service.js';
 import { sendError } from '../utils/http.js';
 
-const forwardVas = async (res, promise, transform) => {
-  const missing = assertVasConfigured();
+const forwardVas = async (res, promise, transform, assertConfigured = assertVasConfigured) => {
+  const missing = assertConfigured();
   if (missing.length) {
     return sendError(res, 500, `Missing: ${missing.join(', ')}`, 'SERVER_CONFIG');
   }
@@ -47,6 +56,10 @@ const forwardVas = async (res, promise, transform) => {
     return sendError(res, 502, error.message || 'VAS request failed', 'VAS_PROXY_ERROR');
   }
 };
+
+/** South Africa catalog (Sp3ndl, ZAR only — the currency query is ignored). */
+const forwardSpendl = (res, promise) =>
+  forwardVas(res, promise, undefined, assertSpendlConfigured);
 
 const parseCatalogQuery = (query) => {
   const params = { ...query };
@@ -77,6 +90,10 @@ export const connect = async (req, res) => forwardVas(res, getConnect());
 
 export const listServices = async (req, res) => {
   const { countryCode, currency: requestedCurrency } = req.query;
+
+  if (isSpendlCountry(countryCode)) {
+    return forwardSpendl(res, listSpendlServices());
+  }
 
   if (requestedCurrency && !isSupportedVasCurrency(requestedCurrency)) {
     return sendError(res, 400, 'Unsupported currency. Use USD or ZWG/ZIG/ZWL', 'INVALID_REQUEST');
@@ -110,6 +127,10 @@ export const listServiceProviders = async (req, res) => {
     );
   }
 
+  if (isSpendlCountry(countryCode)) {
+    return forwardSpendl(res, listSpendlServiceProviders({ service }));
+  }
+
   if (requestedCurrency && !isSupportedVasCurrency(requestedCurrency)) {
     return sendError(res, 400, 'Unsupported currency. Use USD or ZWG/ZIG/ZWL', 'INVALID_REQUEST');
   }
@@ -123,6 +144,16 @@ export const listServiceProviders = async (req, res) => {
 };
 
 export const listProducts = async (req, res) => {
+  if (isSpendlCountry(req.query.countryCode) || isSpendlProductId(req.query.parentProduct)) {
+    return forwardSpendl(
+      res,
+      listSpendlProducts({
+        service: req.query.service,
+        serviceProvider: req.query.serviceProvider || req.query.serviceProviderId,
+      })
+    );
+  }
+
   const parsed = parseCatalogQuery(req.query);
   if (parsed.invalidCurrency) {
     return sendError(res, 400, 'Unsupported currency. Use USD or ZWG/ZIG/ZWL', 'INVALID_REQUEST');
@@ -139,6 +170,10 @@ export const getProductById = async (req, res) => {
   const { id } = req.params;
   if (!id) {
     return sendError(res, 400, 'Product id is required', 'INVALID_REQUEST');
+  }
+
+  if (isSpendlProductId(id)) {
+    return forwardSpendl(res, getSpendlProductById(id));
   }
 
   const requestedCurrency = req.query.currency;

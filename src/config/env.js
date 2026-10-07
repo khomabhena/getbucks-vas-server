@@ -30,6 +30,19 @@ export const getVasCredentials = () => ({
   signature: process.env.VAS_SIGNATURE || process.env.HOT_RECHARGE_SIGNATURE || '',
 });
 
+/** Sp3ndl (South Africa) via the Appleseed SuperAppGateway. */
+export const SPENDL_API_BASE_URL =
+  process.env.SPENDL_API_BASE_URL || 'https://appleseed-uat2.azurewebsites.net';
+
+export const getSpendlCredentials = () => ({
+  subscriptionKey: process.env.SPENDL_SUBSCRIPTION_KEY || '',
+  merchantId: process.env.SPENDL_MERCHANT_ID || '',
+  signature: process.env.SPENDL_SIGNATURE || '',
+});
+
+/** Hide Sp3ndl test products (provider MOCK), e.g. in production. */
+export const SPENDL_HIDE_MOCK_PRODUCTS = process.env.SPENDL_HIDE_MOCK_PRODUCTS === 'true';
+
 /** POS defaults for upstream PostPayment (matches live Postman / till configuration). */
 export const getVasPosDefaults = () => ({
   paymentChannel: process.env.VAS_PAYMENT_CHANNEL || 'CASH',
