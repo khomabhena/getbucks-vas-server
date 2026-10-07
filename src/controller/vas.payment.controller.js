@@ -1,6 +1,8 @@
 import { assertVasConfigured, postPayment, validatePayment } from '../services/vas.service.js';
 import { enrichPaymentBody } from '../services/paymentEnrichment.service.js';
 import { isSpendlProductId } from '../services/spendlCatalog.service.js';
+import { assertSpendlConfigured, validateSpendlPayment } from '../services/spendl.service.js';
+import { SPENDL_TEST_APPLESEED_ACCOUNT_ID } from '../config/env.js';
 import { CreditPartyError } from '../utils/creditParty.js';
 import { sendError } from '../utils/http.js';
 
@@ -12,8 +14,8 @@ const assertPaymentBody = (req, res) => {
   return true;
 };
 
-const forwardVasPayment = async (res, promise, errorCode) => {
-  const missing = assertVasConfigured();
+const forwardVasPayment = async (res, promise, errorCode, assertConfigured = assertVasConfigured) => {
+  const missing = assertConfigured();
   if (missing.length) {
     return sendError(res, 500, `Missing: ${missing.join(', ')}`, 'SERVER_CONFIG');
   }
@@ -38,16 +40,34 @@ const forwardVasPayment = async (res, promise, errorCode) => {
   }
 };
 
-const handlePayment = async (req, res, vasCall, errorCode, stage) => {
-  if (!assertPaymentBody(req, res)) return;
-
-  if (isSpendlProductId(req.body.ProductId)) {
+/** South Africa (Sp3ndl): validation is forwarded (no money moves); purchases stay blocked. */
+const handleSpendlPayment = (req, res, errorCode, stage) => {
+  if (stage !== 'validate') {
     return sendError(
       res,
       501,
       'South Africa payments are not available yet.',
       'SPENDL_PAYMENTS_NOT_ENABLED'
     );
+  }
+
+  if (!req.body.AppleseedAccountId && !SPENDL_TEST_APPLESEED_ACCOUNT_ID) {
+    return sendError(
+      res,
+      501,
+      'South Africa validation is not available yet.',
+      'SPENDL_ACCOUNT_NOT_CONFIGURED'
+    );
+  }
+
+  return forwardVasPayment(res, validateSpendlPayment(req.body), errorCode, assertSpendlConfigured);
+};
+
+const handlePayment = async (req, res, vasCall, errorCode, stage) => {
+  if (!assertPaymentBody(req, res)) return;
+
+  if (isSpendlProductId(req.body.ProductId)) {
+    return handleSpendlPayment(req, res, errorCode, stage);
   }
 
   try {

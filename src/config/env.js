@@ -43,6 +43,11 @@ export const getSpendlCredentials = () => ({
 /** Hide Sp3ndl test products (provider MOCK), e.g. in production. */
 export const SPENDL_HIDE_MOCK_PRODUCTS = process.env.SPENDL_HIDE_MOCK_PRODUCTS === 'true';
 
+export const SPENDL_TERMINAL_ID = process.env.SPENDL_TERMINAL_ID || 'SUPERAPP';
+
+/** Appleseed wallet used for every Sp3ndl request until per-customer accounts are available (UAT only). */
+export const SPENDL_TEST_APPLESEED_ACCOUNT_ID = process.env.SPENDL_TEST_APPLESEED_ACCOUNT_ID || '';
+
 /** POS defaults for upstream PostPayment (matches live Postman / till configuration). */
 export const getVasPosDefaults = () => ({
   paymentChannel: process.env.VAS_PAYMENT_CHANNEL || 'CASH',
