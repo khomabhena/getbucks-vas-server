@@ -1,8 +1,12 @@
 import { assertVasConfigured, postPayment, validatePayment } from '../services/vas.service.js';
 import { enrichPaymentBody } from '../services/paymentEnrichment.service.js';
 import { isSpendlProductId } from '../services/spendlCatalog.service.js';
-import { assertSpendlConfigured, validateSpendlPayment } from '../services/spendl.service.js';
-import { SPENDL_TEST_APPLESEED_ACCOUNT_ID } from '../config/env.js';
+import {
+  assertSpendlConfigured,
+  postSpendlPayment,
+  validateSpendlPayment,
+} from '../services/spendl.service.js';
+import { SPENDL_PAYMENTS_ENABLED, SPENDL_TEST_APPLESEED_ACCOUNT_ID } from '../config/env.js';
 import { CreditPartyError } from '../utils/creditParty.js';
 import { sendError } from '../utils/http.js';
 
@@ -40,9 +44,11 @@ const forwardVasPayment = async (res, promise, errorCode, assertConfigured = ass
   }
 };
 
-/** South Africa (Sp3ndl): validation is forwarded (no money moves); purchases stay blocked. */
+/** South Africa (Sp3ndl): validation is always forwarded; purchases only when SPENDL_PAYMENTS_ENABLED. */
 const handleSpendlPayment = (req, res, errorCode, stage) => {
-  if (stage !== 'validate') {
+  const isPost = stage !== 'validate';
+
+  if (isPost && !SPENDL_PAYMENTS_ENABLED) {
     return sendError(
       res,
       501,
@@ -55,12 +61,13 @@ const handleSpendlPayment = (req, res, errorCode, stage) => {
     return sendError(
       res,
       501,
-      'South Africa validation is not available yet.',
+      `South Africa ${isPost ? 'payments are' : 'validation is'} not available yet.`,
       'SPENDL_ACCOUNT_NOT_CONFIGURED'
     );
   }
 
-  return forwardVasPayment(res, validateSpendlPayment(req.body), errorCode, assertSpendlConfigured);
+  const call = isPost ? postSpendlPayment : validateSpendlPayment;
+  return forwardVasPayment(res, call(req.body), errorCode, assertSpendlConfigured);
 };
 
 const handlePayment = async (req, res, vasCall, errorCode, stage) => {

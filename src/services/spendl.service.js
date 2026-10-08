@@ -71,3 +71,9 @@ export const toSpendlPaymentRequest = (body) => ({
 
 export const validateSpendlPayment = (body) =>
   spendlPost('/spendl/V2/ValidateSpendlPayment', toSpendlPaymentRequest(body));
+
+export const postSpendlPayment = (body) =>
+  spendlPost('/spendl/V2/PostSpendlPayment', toSpendlPaymentRequest(body));
+
+export const getSpendlPaymentStatus = (requestId) =>
+  spendlGet('/spendl/V2/SpendlPaymentStatus', { id: requestId });

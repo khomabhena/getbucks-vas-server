@@ -45,6 +45,9 @@ export const SPENDL_HIDE_MOCK_PRODUCTS = process.env.SPENDL_HIDE_MOCK_PRODUCTS =
 
 export const SPENDL_TERMINAL_ID = process.env.SPENDL_TERMINAL_ID || 'SUPERAPP';
 
+/** Forward South Africa purchases to Sp3ndl (UAT testing); otherwise they are rejected. */
+export const SPENDL_PAYMENTS_ENABLED = process.env.SPENDL_PAYMENTS_ENABLED === 'true';
+
 /** Appleseed wallet used for every Sp3ndl request until per-customer accounts are available (UAT only). */
 export const SPENDL_TEST_APPLESEED_ACCOUNT_ID = process.env.SPENDL_TEST_APPLESEED_ACCOUNT_ID || '';
 
