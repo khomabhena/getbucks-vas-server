@@ -66,6 +66,53 @@ export const validatePayment = (body) => vasPost('/V2/ValidatePayment', body);
 
 export const postPayment = (body) => vasPost('/V2/PostPayment', body);
 
+/**
+ * Official ZB proof-of-payment PDF.
+ * Id must be the Receipt Number (not RequestId) from PostPayment DisplayData / ReferenceNumber.
+ */
+export const downloadReceipt = async (receiptId) => {
+  const params = new URLSearchParams({ Id: String(receiptId) });
+  const url = `${vasBaseUrl()}/V2/DownloadReceipt?${params.toString()}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      ...vasHeaders(),
+      Accept: 'application/pdf',
+      'Content-Type': 'application/pdf',
+    },
+  });
+
+  const contentType = response.headers.get('content-type') || '';
+  const buffer = Buffer.from(await response.arrayBuffer());
+
+  if (!response.ok) {
+    let data = {};
+    const text = buffer.toString('utf8');
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { rawResponse: text.slice(0, 500) };
+      }
+    }
+    return {
+      ok: false,
+      status: response.status,
+      statusText: response.statusText,
+      data,
+    };
+  }
+
+  return {
+    ok: true,
+    status: response.status,
+    statusText: response.statusText,
+    buffer,
+    contentType: contentType.includes('pdf') ? contentType : 'application/pdf',
+  };
+};
+
 export const getServices = (query = {}) => vasGet('/V2/Services', query);
 
 export const getCountries = (service) => vasGet('/V2/Countries', { service });

@@ -1,4 +1,9 @@
-import { assertVasConfigured, postPayment, validatePayment } from '../services/vas.service.js';
+import {
+  assertVasConfigured,
+  downloadReceipt,
+  postPayment,
+  validatePayment,
+} from '../services/vas.service.js';
 import { enrichPaymentBody } from '../services/paymentEnrichment.service.js';
 import { isSpendlProductId } from '../services/spendlCatalog.service.js';
 import {
@@ -97,3 +102,41 @@ export const validateBeforePayment = async (req, res) =>
 
 export const createPayment = async (req, res) =>
   handlePayment(req, res, postPayment, 'VAS_POST_PAYMENT_FAILED', 'post');
+
+/** Official ZB PDF proof of payment (Receipt Number from PostPayment as Id). */
+export const downloadOfficialReceipt = async (req, res) => {
+  const receiptId = String(req.query.id || req.query.Id || '').trim();
+  if (!receiptId) {
+    return sendError(res, 400, 'Receipt Id is required', 'INVALID_REQUEST');
+  }
+
+  const missing = assertVasConfigured();
+  if (missing.length) {
+    return sendError(res, 500, `Missing: ${missing.join(', ')}`, 'SERVER_CONFIG');
+  }
+
+  try {
+    const result = await downloadReceipt(receiptId);
+    if (!result.ok) {
+      return res.status(result.status).json({
+        error:
+          result.data.ResultMessage ||
+          result.data.Message ||
+          result.data.error ||
+          result.statusText ||
+          'Download receipt failed',
+        code: 'VAS_DOWNLOAD_RECEIPT_FAILED',
+        details: result.data,
+      });
+    }
+
+    const safeName = receiptId.replace(/[^\w.-]+/g, '_').slice(0, 80);
+    res.setHeader('Content-Type', result.contentType || 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="proof-of-payment-${safeName}.pdf"`);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).send(result.buffer);
+  } catch (error) {
+    console.error('VAS download receipt failed:', error);
+    return sendError(res, 502, error.message || 'VAS request failed', 'VAS_PROXY_ERROR');
+  }
+};
