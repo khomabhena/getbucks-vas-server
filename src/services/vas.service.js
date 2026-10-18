@@ -68,7 +68,7 @@ export const postPayment = (body) => vasPost('/V2/PostPayment', body);
 
 /**
  * Official ZB proof-of-payment PDF.
- * Id must be the Receipt Number (not RequestId) from PostPayment DisplayData / ReferenceNumber.
+ * Id must be the PostPayment RequestId (GUID). Receipt Number / ReferenceNumber are rejected by VAS.
  */
 export const downloadReceipt = async (receiptId) => {
   const params = new URLSearchParams({ Id: String(receiptId) });

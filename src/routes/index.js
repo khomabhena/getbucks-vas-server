@@ -26,7 +26,7 @@
  * VAS payment (BFF enriches CreditPartyIdentifiers from product catalog)
  *   POST /api/vas/payment/validate → VAS /V2/ValidatePayment
  *   POST /api/vas/payment          → VAS /V2/PostPayment
- *   GET  /api/vas/payment/receipt?id= → VAS /V2/DownloadReceipt (ZB PDF; Id = Receipt Number)
+ *   GET  /api/vas/payment/receipt?id= → VAS /V2/DownloadReceipt (ZB PDF; Id = RequestId GUID)
  *   Optional: Recipient { msisdn, accountNumber, ... } — field names resolved from catalog
  *   BFF normalizes digital-channel payloads to POS shape (CASH, Quantity 0, till POS ids)
  *

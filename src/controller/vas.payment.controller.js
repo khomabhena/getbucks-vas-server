@@ -103,7 +103,7 @@ export const validateBeforePayment = async (req, res) =>
 export const createPayment = async (req, res) =>
   handlePayment(req, res, postPayment, 'VAS_POST_PAYMENT_FAILED', 'post');
 
-/** Official ZB PDF proof of payment (Receipt Number from PostPayment as Id). */
+/** Official ZB PDF proof of payment (PostPayment RequestId GUID as Id). */
 export const downloadOfficialReceipt = async (req, res) => {
   const receiptId = String(req.query.id || req.query.Id || '').trim();
   if (!receiptId) {
